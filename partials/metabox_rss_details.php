@@ -84,80 +84,10 @@
             </tbody>
 
         </table>
-        <?php if($this->preview): ?>
-            <h2>Feed Test</h2>
-            <p>Opening Feed:</p>
-            <?php
+        <input name="checker" type="button" class="button button-primary button-large" id="feed-check" value="Check Feed"><br><br>
+        <table id="feed-details-area">
+            <tbody>
 
-            $url = $this->option_fields['rss_details']['_rss_link']['value'];
-            $rss = simplexml_load_file($url);
-            $items = $rss->channel->item;
-            $data = [];
-            if($items){
-                $data['title'] = $items->title;
-                $data['url'] = $items->link;
-                $driver = new \Behat\Mink\Driver\GoutteDriver();
-                $this->browser = new \Behat\Mink\Session($driver);
-                $this->browser->start();
-                $this->browser->visit((string)$items->link);
-                $feed = $this->browser->getPage();
-            }else{
-                $data['error'] = 'No links found';
-            }
-
-            function getElemValue($elem,$type){
-                switch ($type) {
-                    case 'text':
-                    return $elem->getText();
-                    break;
-                    case 'html':
-                    return $elem->getHtml();
-                    break;
-                    case 'inputvalue':
-                    return $elem->getValue();
-                    break;
-                    case 'attrsrc':
-                    case 'attrcontent':
-                    case 'attrhref':
-                    case 'attrname':
-                    $type = str_replace('attr','',$type);
-                    return $elem->getAttribute($type);
-                    break;
-                    default:
-                    return $elem->getOuterHtml();
-                    break;
-                }
-            }
-
-            foreach ($this->option_fields['rss_details'] as $field => $d) {
-                if($d['type']!='grabber') continue;
-
-                // Lookup Type
-                switch ($d['value'][0]) {
-                    case 'XPATH':
-                    $elem = $feed->find('xpath', $d['value'][1]);
-                    if($elem !== NULL){
-                        $data[$d['label']] = getElemValue($elem,$d['value'][2]);
-                    }
-                    else {
-                        $data[$d['label']] = 'Not found';
-                    }
-                    break;
-
-                    default:
-                    # code...
-                    break;
-                }
-            }
-            ?>
-            <table>
-                <tbody>
-                    <?php foreach($data as $k=>$v): ?>
-                        <tr>
-                            <th><?=strtoupper($k)?></th>
-                            <td><?=($v)?></td>
-                        </tr>
-                    <?php endforeach;?>
-                </tbody>
-            </table>
-        <?php endif;?>
+            </tbody>
+        </table>
+        <textarea id="log-area" rows="8" class="hidden" style="width:100%"></textarea>

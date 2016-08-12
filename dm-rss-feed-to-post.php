@@ -14,6 +14,7 @@ define( 'DM_RSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'DM_RSS_DEBUG' , true );
 
 require_once DM_RSS_PLUGIN_DIR . '/vendor/autoload.php';
+require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-to-post-grabber.php');
 require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-to-post.php');
 
 if(class_exists('DMRSS'))
