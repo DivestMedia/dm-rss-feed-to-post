@@ -12,26 +12,37 @@ if(!class_exists('DMRSS')){
                     'label' => 'Feed URL',
                     'description' => 'URL where the feeds will be fetched',
                     'type' => 'text',
+                    'required' => true
                 ],
                 '_rss_post_type' => [
                     'label' => 'Post Type',
                     'description' => 'Optional. Default: Post',
                     'type' => 'text',
+                    'required' => false
                 ],
                 '_rss_post_thumbnail' => [
                     'label' => 'Post Thumbnail',
                     'description' => '',
                     'type' => 'grabber',
+                    'required' => true
                 ],
                 '_rss_post_content' => [
                     'label' => 'Post Content',
                     'description' => '',
                     'type' => 'grabber',
+                    'required' => true
                 ],
                 '_rss_post_author' => [
                     'label' => 'Post Author',
                     'description' => '',
                     'type' => 'grabber',
+                    'required' => false
+                ],
+                '_rss_post_meta' => [
+                    'label' => 'Custom Meta',
+                    'description' => '',
+                    'type' => 'grabber',
+                    'required' => false
                 ],
             ]
         ];

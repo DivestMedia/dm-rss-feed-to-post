@@ -3,8 +3,19 @@
         <?php foreach($this->option_fields[$meta['args']['group']] as $field => $data): ?>
             <tr class="user-rich-editing-wrap">
                 <th scope="row">
-                    <?=($data['label'])?>
-                    <p class="description"><?=($data['description'])?></p>
+                    <?php if($data['label']!=='Custom Meta'):?>
+                        <?=($data['label'])?>
+                        <p class="description"><?=($data['description'])?></p>
+                    <?php else:?>
+                        <span class="row-title"><?=($data['label'])?></span>
+                        <p class="description"><strong>Meta Key:</strong> </p>
+                        <?php foreach ($data['value']['meta'] as $metaid => $value): ?>
+                            <?php if(!empty($value)): ?>
+                                <input type="text" name="<?=($field)?>[meta][]" id="<?=($field)?>-meta" value="<?=esc_attr($value)?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
+                            <?php endif;?>
+                        <?php endforeach; ?>
+                        <p class="description">The query that will be used for searching</p>
+                    <?php endif;?>
                 </th>
                 <td>
                     <?php switch ($data['type']){
@@ -12,39 +23,60 @@
                         <table>
                             <tbody>
                                 <tr>
-                                    <td>
+                                    <td style="vertical-align:top;">
                                         <p class="description"><strong>Loookup Method:</strong> </p>
-                                        <select name="<?=($field)?>[]" id="<?=($field)?>-type">
-                                            <?php foreach ([
-                                                'ID','CSS','XPATH'
-                                                ] as $option): ?>
-                                                <option <?=($option==$data['value'][0]? 'selected' : '')?>><?=($option)?></option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                        <?php
+                                        $inputs = ($data['label']=='Custom Meta') ? $data['value']['type'] : [$data['value']['type']];
+                                        ?>
+                                        <?php foreach ($inputs as $metaid => $value): ?>
+                                            <?php if(!empty($value)): ?>
+                                                <select name="<?=($field)?>[type]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-type" <?=($data['required'] ? 'required' : '')?>>
+                                                    <?php foreach ([
+                                                        'ID','NAME','CSS','XPATH'
+                                                        ] as $option): ?>
+                                                        <option <?=($option==$value? 'selected' : '')?>><?=($option)?></option>
+                                                    <?php endforeach; ?>
+                                                </select><br>
+                                            <?php endif;?>
+                                        <?php endforeach; ?>
                                         <p class="description">The type of DOM search</p>
                                     </td>
-                                    <td>
+                                    <td style="vertical-align:top;width:350px;">
                                         <p class="description"><strong>Search for:</strong></p>
-                                        <input type="text" name="<?=($field)?>[]" id="<?=($field)?>-query" value="<?=esc_attr($data['value'][1])?>" class="regular-text">
+                                        <?php
+                                        $inputs = ($data['label']=='Custom Meta') ? $data['value']['query'] : [$data['value']['query']];
+                                        ?>
+                                        <?php foreach ($inputs as $metaid => $value): ?>
+                                            <?php if(!empty($value)): ?>
+                                                <input type="text" name="<?=($field)?>[query]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-query" value="<?=esc_attr($value)?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
+                                            <?php endif;?>
+                                        <?php endforeach; ?>
                                         <p class="description">The query that will be used for searching</p>
                                     </td>
-                                    <td>
+                                    <td style="vertical-align:top;">
                                         <p class="description"><strong>Grab the:</strong></p>
-                                        <select name="<?=($field)?>[]" id="<?=($field)?>-grab">
-                                            <?php foreach ([
-                                                'Text',
-                                                'HTML',
-                                                'Input : Value',
-                                                'Attr : src',
-                                                'Attr : content',
-                                                'Attr : href',
-                                                'Attr : name',
-                                                ] as $option):
-
-                                                $optionslug = strtolower(preg_replace('/[^\da-z]/i', '', $option)); ?>
-                                                <option value="<?=$optionslug?>" <?=($optionslug==$data['value'][2]? 'selected' : '')?>><?=($option)?></option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                        <?php
+                                        $inputs = ($data['label']=='Custom Meta') ? $data['value']['selector'] : [$data['value']['selector']];
+                                        ?>
+                                        <?php foreach ($inputs as $metaid => $value): ?>
+                                            <?php if(!empty($value)): ?>
+                                                <select name="<?=($field)?>[selector]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-grab" <?=($data['required'] ? 'required' : '')?>>
+                                                    <?php foreach ([
+                                                        'Text',
+                                                        'HTML',
+                                                        'Input : Value',
+                                                        'Attr : src',
+                                                        'Attr : content',
+                                                        'Attr : href',
+                                                        'Attr : name',
+                                                        ] as $option):
+                                                        $optionslug = strtolower(preg_replace('/[^\da-z]/i', '', $option)); ?>
+                                                        <option value="<?=$optionslug?>" <?=($optionslug==$value? 'selected' : '')?>><?=($option)?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <br>
+                                            <?php endif;?>
+                                        <?php endforeach; ?>
                                         <p class="description">The property of the element to grab</p>
                                     </td>
                                 </tr>
@@ -54,7 +86,7 @@
                         <?php break;
                         case 'text': ?>
                         <?php default: ?>
-                        <input type="text" name="<?=($field)?>" id="<?=($field)?>" value="<?=($data['value'])?>" class="regular-text">
+                        <input type="text" name="<?=($field)?>" id="<?=($field)?>" value="<?=($data['value'])?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>>
                         <?php break; ?>
                         <?php } ?>
                         <?php
@@ -81,6 +113,11 @@
                         </td>
                     </tr>
                 <?php endforeach;?>
+                <tr>
+                    <td colspan="2" class="text-center">
+                        <button class="button" id="add-meta-button">Add Custom Meta Fields</button>
+                    </td>
+                </tr>
             </tbody>
 
         </table>

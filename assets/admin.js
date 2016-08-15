@@ -17,7 +17,9 @@ jQuery(function($){
                         console.log(item);
                         for(var ii in item){
                             var d = item[ii];
-                            $('#feed-details-area tbody').append('<tr id="'+d.key+'"><th>'+d.label+'</th><td>'+d.value+'</td></tr>');
+                            if(typeof d.key != 'undefined'){
+                                $('#feed-details-area tbody').append('<tr id="'+d.key+'"><th style="width:300px;">'+d.label+'</th><td>'+d.value+'</td></tr>');
+                            }
                         }
                     }
                 }
@@ -32,8 +34,19 @@ jQuery(function($){
                 }
             }
 
-                thisbtn.val('Check Feed');
-                thisbtn.removeClass('disabled');
+            thisbtn.val('Check Feed');
+            thisbtn.removeClass('disabled');
         });
     });
+
+    $('#add-meta-button').click(function(e){
+        e.preventDefault();
+        $('.form-table > tbody > tr:nth-last-child(2)').find('[name^="_rss_post_meta"]:last-of-type').each(function(){
+            var $newelem = $(this).clone();
+            $newelem.val('');
+            $newelem.insertAfter($(this));
+            $('<br>').insertBefore($newelem);
+        });
+    });
+
 });

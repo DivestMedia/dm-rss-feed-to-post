@@ -11,12 +11,14 @@ if(!class_exists('RSSMink')){
         public $count = 0;
         public $log = [];
         public $feed = null;
+        public $browser = null;
         public $meta = [
             '_rss_link' => null ,
             '_rss_post_type' => null ,
             '_rss_post_thumbnail' => null ,
             '_rss_post_content' => null ,
             '_rss_post_author' => null ,
+            '_rss_post_meta' => null ,
         ];
 
         function __CONSTRUCT($id = null){
@@ -43,10 +45,10 @@ if(!class_exists('RSSMink')){
         }
         public function visit($url){
             $driver = new \Behat\Mink\Driver\GoutteDriver();
-            $browser = new \Behat\Mink\Session($driver);
-            $browser->start();
-            $browser->visit($url);
-            return $browser->getPage();
+            $this->browser = new \Behat\Mink\Session($driver);
+            $this->browser->start();
+            $this->browser->visit($url);
+            return $this->browser->getPage();
         }
 
         public function getElemValue($elem,$type){
@@ -108,40 +110,67 @@ if(!class_exists('RSSMink')){
                         '_rss_post_thumbnail' => 'Post Thumbnail',
                         '_rss_post_content' => 'Post Content',
                         '_rss_post_author' => 'Post Author',
+                        '_rss_post_meta' => 'Custom Meta'
                         ] as $field => $label) {
+
                             $d = $this->meta[$field];
-                            $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.$field,2);
-                            // Lookup Type
-                            switch ($d[0]) {
-                                case 'XPATH':
-                                $elem = $feed->find('xpath', $d[1]);
-                                break;
-                                case 'CSS':
-                                $elem = $feed->find('css', $d[1]);
-                                break;
+
+                            if($field !== '_rss_post_meta'){
+                                $dd = [];
+                                foreach ($d as $kkk => $vvv) {
+                                    $dd[$kkk][] = $vvv;
+                                }
+
+                                $d = $dd;
                             }
 
-                            if($elem !== NULL){
-                                $links[$k][] = [
-                                    'label' => $label,
-                                    'key' => $k,
-                                    'value' => $this->getElemValue($elem,$d[2])
-                                ];
-                                $this->logger('Grab','Feed item #'.($k+1).'. '.$field . ' found',1);
-                            }
-                            else {
-                                $this->logger('Grab','Feed item #'.($k+1).'. '.$field . ' is empty',3);
-                                $links[$k] = [
-                                    'label' => $label,
-                                    'key' => $k,
-                                    'value' => 'Not Found'
-                                ];
+                            // Lookup Type
+                            foreach ($d['type'] as $kk => $vv) {
+                                $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]),2);
+                                switch ($vv) {
+                                    case 'XPATH':
+                                    $elem = $feed->find('xpath', $d['query'][$kk]);
+                                    break;
+                                    case 'CSS':
+                                    $elem = $feed->find('css', $d['query'][$kk]);
+                                    break;
+                                    case 'ID':
+                                    $elem = $feed->findById(trim($d['query'][$kk],'#'));
+                                    break;
+                                    case 'NAME':
+                                    default:
+                                    $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
+                                    break;
+                                }
+
+
+                                if($field == '_rss_post_meta'){
+                                    $label = 'Meta: ' . $d['meta'][$kk];
+                                }
+                                if($elem !== NULL){
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => $this->getElemValue($elem,$d['selector'][$kk])
+                                    ];
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]) . ' found',1);
+                                }
+                                else {
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]) . ' is empty',3);
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => 'Not Found'
+                                    ];
+                                }
                             }
                         }
                     }else{
                         $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
                     }
                 }
+
+
                 return $links;
             }
 
@@ -198,6 +227,19 @@ if(!class_exists('RSSMink')){
                     $this->logger('Test','URL unreachable',0);
                     return false;
                 }
+            }
+
+            public static function slug($title, $separator = '-')
+            {
+                // $title = static::ascii($title);
+                // Convert all dashes/underscores into separator
+                $flip = $separator == '-' ? '_' : '-';
+                $title = preg_replace('!['.preg_quote($flip).']+!u', $separator, $title);
+                // Remove all characters that are not the separator, letters, numbers, or whitespace.
+                $title = preg_replace('![^'.preg_quote($separator).'\pL\pN\s]+!u', '', mb_strtolower($title));
+                // Replace all separator characters and whitespace by a single separator
+                $title = preg_replace('!['.preg_quote($separator).'\s]+!u', $separator, $title);
+                return trim($title, $separator);
             }
         }
     }
