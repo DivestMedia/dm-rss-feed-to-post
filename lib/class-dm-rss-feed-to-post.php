@@ -20,6 +20,12 @@ if(!class_exists('DMRSS')){
                     'type' => 'text',
                     'required' => false
                 ],
+                '_rss_post_published' => [
+                    'label' => 'Published Date',
+                    'description' => 'Optional. Default: Current timestamp',
+                    'type' => 'grabber',
+                    'required' => false
+                ],
                 '_rss_post_thumbnail' => [
                     'label' => 'Post Thumbnail',
                     'description' => '',
@@ -52,6 +58,8 @@ if(!class_exists('DMRSS')){
         {
             add_action('init', [&$this, 'init']);
             add_action('admin_init', [&$this, 'admin_init']);
+            add_action('grab_feeds', [&$this, 'grab_feeds']);
+            add_filter('cron_schedules', [&$this, 'rss_intervals']);
         }
 
         public function init(){
@@ -72,6 +80,7 @@ if(!class_exists('DMRSS')){
                 add_meta_box( 'rss_details', 'Feed Details', [&$this, 'show_meta_box'], 'rss_feed' , 'normal', 'high',['group'=>'rss_details']);
             });
             add_action( 'save_post_rss_feed', [ &$this , 'save_meta_box' ]);
+            add_action( 'before_delete_post', [ &$this , 'delete_post' ]);
         }
 
         public function show_meta_box($post,$meta){
@@ -83,13 +92,24 @@ if(!class_exists('DMRSS')){
             include_once( DM_RSS_PLUGIN_DIR . 'partials/metabox_'.$meta['args']['group'].'.php');
         }
 
+        function delete_post($postid){
+            global $post_type;
+            if ( $post_type != 'rss_feed' ) return;
+
+            wp_unschedule_event( wp_next_scheduled( 'grab_feeds', ['id' => $postid ]  ), 'grab_feeds', ['id' => $postid ] );
+        }
+
         public function save_meta_box(){
 
             global $post;
+            if(empty($post) || !isset($post->ID)){
+                return;
+            }
+
             if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ){
                 return;
             }
-            if( ! current_user_can( 'edit_post', $post->id ) ){
+            if( ! current_user_can( 'edit_post', $post->ID ) ){
                 return;
             }
 
@@ -101,6 +121,63 @@ if(!class_exists('DMRSS')){
                     $this->save_meta_value($post->ID,$key,stripslashes_deep($_POST[$key]));
                 }
             }
+
+            if (! wp_next_scheduled ( 'grab_feeds' ,['id' => $post->ID ])) {
+                wp_schedule_event(time(), 'minutes_5', 'grab_feeds',['id' => $post->ID ]);
+            }
+
+        }
+
+        public function grab_feeds($id){
+            $RSSMink = new RSSMink($id);
+            $feeds = $RSSMink->getRssItems(0,10);
+            foreach ($feeds as $key => $feeddata) {
+                $defaults = [
+                    'post_status' => 'publish',
+                    'post_type' => 'post',
+                ];
+                foreach ($feeddata as $key => $data) {
+                    if(substr( $data['key'], 0, 5 ) === "meta-"){
+                        if(!isset($args['meta_input'])) $args['meta_input'] = [];
+                        $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
+                    }else{
+                        switch ($data['key']) {
+                            case 'post-title':
+                            $args['post_title'] = $data['value'];
+                            break;
+                            case 'post-date':
+                            $args['post_date'] = date('Y-m-d H:i:s',strtotime($data['value']));
+                            break;
+                            case 'post-thumbnail':
+                            $args['post-thumbnail'] = $data['value'];
+                            break;
+                            case 'post-excerpt':
+                            $args['post_excerpt'] = $data['value'];
+                            break;
+                            case 'post-content':
+                            $args['post_content'] = $data['value'];
+                            break;
+                        }
+                    }
+                }
+
+                $args = wp_parse_args($args, $defaults);
+                if(!post_exists($args['post_title'])){
+                    if(($insertid = wp_insert_post($args))>0){
+                        $this->grab_thumbnail($args['post-thumbnail'],$insertid);
+                    }else{
+                        // Post Insert Failed
+                    }
+                }
+
+            }
+
+        }
+
+
+        function rss_intervals($interval) {
+            $interval['minutes_5'] = array('interval' => 5*60, 'display' => 'Once every 5 minutes');
+            return $interval;
         }
 
         public function save_meta_value($id,$meta_id = '',$value = ''){
@@ -210,8 +287,85 @@ if(!class_exists('DMRSS')){
             return 0;
         }
 
-        public function activate(){ }
-        public function deactivate(){ }
+
+        public function grab_thumbnail( $image_url, $post_id , $thumbnail = true ){
+            $upload_dir = wp_upload_dir();
+
+            $opts = [
+                'http' => [
+                    'method'  => 'GET',
+                    'user_agent '  => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+                    'header' => [
+                        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+                        '
+                    ]
+                ]
+            ];
+
+            $context  = stream_context_create($opts);
+
+            $image_data = file_get_contents($image_url,false,$context);
+
+
+            $filename = basename($image_url);
+
+            // Remove Query Strings
+
+            $filename = substr($filename,0,strpos($filename, '?'));
+
+            if(wp_mkdir_p($upload_dir['path']))     $file = $upload_dir['path'] . '/' . $filename;
+            else                                    $file = $upload_dir['basedir'] . '/' . $filename;
+            file_put_contents($file, $image_data);
+
+            $wp_filetype = wp_check_filetype($filename, null );
+            $attachment = array(
+                'post_mime_type' => $wp_filetype['type'],
+                'post_title' => sanitize_file_name($filename),
+                'post_content' => '',
+                'post_status' => 'inherit'
+            );
+            $attach_id = wp_insert_attachment( $attachment, $file, $post_id );
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            $attach_data = wp_generate_attachment_metadata( $attach_id, $file );
+            $res1= wp_update_attachment_metadata( $attach_id, $attach_data );
+            if($thumbnail){
+                $res2= set_post_thumbnail( $post_id, $attach_id );
+            }else{
+                return $attach_id;
+            }
+        }
+
+        public static function activate(){
+            $pubfeeds = get_posts([
+                'post_type'   => 'rss_feed',
+                'numberposts' => -1,
+                'post_status' => 'publish'
+            ]);
+
+            foreach ($pubfeeds as $key => $post) {
+                if (! wp_next_scheduled ( 'grab_feeds' ,['id' => $post->ID ])) {
+                    wp_schedule_event(time(), 'minutes_5', 'grab_feeds',['id' => $post->ID ]);
+                }
+            }
+
+        }
+        public static function deactivate(){
+            $hook = 'grab_feeds';
+            $crons = _get_cron_array();
+            if ( empty( $crons ) ) {
+                return;
+            }
+            foreach( $crons as $timestamp => $cron ) {
+                if ( ! empty( $cron[$hook] ) )  {
+                    unset( $crons[$timestamp][$hook] );
+                }
+
+                if ( empty( $crons[$timestamp] ) ) {
+                    unset( $crons[$timestamp] );
+                }
+            }
+            _set_cron_array( $crons );
+        }
     }
 
 }

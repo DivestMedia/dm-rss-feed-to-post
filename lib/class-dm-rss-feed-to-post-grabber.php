@@ -19,6 +19,7 @@ if(!class_exists('RSSMink')){
             '_rss_post_content' => null ,
             '_rss_post_author' => null ,
             '_rss_post_meta' => null ,
+            '_rss_post_published' => null ,
         ];
 
         function __CONSTRUCT($id = null){
@@ -54,23 +55,23 @@ if(!class_exists('RSSMink')){
         public function getElemValue($elem,$type){
             switch ($type) {
                 case 'text':
-                return esc_html($elem->getText());
+                return $elem->getText();
                 break;
                 case 'html':
-                return esc_html(strip_tags($elem->getHtml(),'<br><div><p><img>'));
+                return strip_tags($elem->getHtml(),'<br><div><p><img>');
                 break;
                 case 'inputvalue':
-                return esc_html($elem->getValue());
+                return $elem->getValue();
                 break;
                 case 'attrsrc':
                 case 'attrcontent':
                 case 'attrhref':
                 case 'attrname':
                 $type = str_replace('attr','',$type);
-                return esc_html($elem->getAttribute($type));
+                return $elem->getAttribute($type);
                 break;
                 default:
-                return esc_html($elem->getOuterHtml());
+                return $elem->getOuterHtml();
                 break;
             }
         }
@@ -108,6 +109,7 @@ if(!class_exists('RSSMink')){
                 if($feed){
                     foreach ([
                         '_rss_post_thumbnail' => 'Post Thumbnail',
+                        '_rss_post_published' => 'Published Date',
                         '_rss_post_content' => 'Post Content',
                         '_rss_post_author' => 'Post Author',
                         '_rss_post_meta' => 'Custom Meta'
