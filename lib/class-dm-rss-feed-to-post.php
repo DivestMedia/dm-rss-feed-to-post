@@ -66,6 +66,8 @@ if(!class_exists('DMRSS')){
             add_action('admin_init', [&$this, 'admin_init']);
             add_action('grab_feeds', [&$this, 'grab_feeds']);
             add_filter('cron_schedules', [&$this, 'rss_intervals']);
+            add_filter('manage_rss_feed_posts_columns' , [&$this, 'manage_rss_feed_posts_columns_cb']);
+            add_filter('manage_rss_feed_posts_custom_column' , [&$this, 'manage_rss_feed_posts_custom_column_cb'],10,2);
         }
 
         public function init(){
@@ -142,6 +144,8 @@ if(!class_exists('DMRSS')){
                     'post_status' => 'publish',
                     'post_type' => 'post',
                 ];
+                $itemurl = '';
+                $itemauthor = '';
                 foreach ($feeddata as $key => $data) {
                     if(substr( $data['key'], 0, 5 ) === "meta-"){
                         if(!isset($args['meta_input'])) $args['meta_input'] = [];
@@ -162,6 +166,12 @@ if(!class_exists('DMRSS')){
                             break;
                             case 'post-content':
                             $args['post_content'] = $data['value'];
+                            break;
+                            case 'post-url':
+                            $itemurl = $data['value'];
+                            break;
+                            case 'post-author':
+                            $itemauthor = $data['value'];
                             break;
                         }
                     }
@@ -192,6 +202,11 @@ if(!class_exists('DMRSS')){
                     $args = wp_parse_args($args, $defaults);
 
                     if(($insertid = wp_insert_post($args))>0){
+                        add_post_meta($insertid, 'dm_rss_feed_id', $id, true);
+                        add_post_meta($insertid, 'dm_rss_feed_item_link', $itemurl, true);
+                        if(!empty($itemauthor)){
+                            add_post_meta($insertid, 'dm_rss_feed_item_author', $itemauthor, true);
+                        }
                         $this->grab_thumbnail($args['post-thumbnail'],$insertid);
                     }else{
                         // Post Insert Failed
@@ -396,6 +411,50 @@ if(!class_exists('DMRSS')){
                 }
             }
             _set_cron_array( $crons );
+        }
+
+        function manage_rss_feed_posts_columns_cb($columns) {
+
+            $new_columns = array(
+                'import_count' => __('Imported Posts'),
+                'next_import' => 'Next Import'
+            );
+            return array_merge($columns, $new_columns);
+        }
+
+        function manage_rss_feed_posts_custom_column_cb($column, $post_id){
+            switch ( $column ) {
+                case 'import_count' :
+                $query = new WP_Query( array( 'meta_key' => 'dm_rss_feed_id', 'meta_value' => $post_id ) );
+                echo $query->found_posts?: 0;
+                break;
+                case 'next_import' :
+                if((isset($_GET['rss_action']) && $_GET['rss_action']=='import-now') &&
+                (isset($_GET['rss_id']) && $_GET['rss_id']==$post_id)){
+                    if ($nextime = wp_next_scheduled ( 'grab_feeds' ,['id' => $post_id ])) {
+                        wp_unschedule_event($nextime,  'grab_feeds' ,['id' => $post_id ] );
+                        if(wp_reschedule_event(time(), 'minutes_5', 'grab_feeds',['id' => $post_id ])==null){
+                            echo '<script>window.location.assign("'.add_query_arg( array(
+                                'rss_action' => 'import-success',
+                                'rss_id' => $post_id,
+                            )).'")</script>';
+                        };
+                    }
+                }
+
+                if((isset($_GET['rss_action']) && $_GET['rss_action']=='import-success') &&
+                (isset($_GET['rss_id']) && $_GET['rss_id']==$post_id)){
+                    echo 'Import Rescheduled' . '<br>';
+                }
+                $timestamp = wp_next_scheduled(  'grab_feeds' ,['id' => $post_id ]);
+                echo human_time_diff($timestamp + (get_option( 'gmt_offset' ) * 3600) ) . ' from now' ?: 'Not scheduled yet';
+                echo '<br>';
+                echo '<div class="row-actions"><span class="run-now"><a href="'.add_query_arg( array(
+                    'rss_action' => 'import-now',
+                    'rss_id' => $post_id,
+                )).'">Import Now</a></span></div>';
+                break;
+            }
         }
     }
 
