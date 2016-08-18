@@ -9,15 +9,15 @@
                     <?php else:?>
                         <span class="row-title"><?=($data['label'])?></span>
                         <p class="description"><strong>Meta Key:</strong> </p>
-                        <?php if(!empty($data['value'])): ?>
-
+                        <?php
+                        if(!empty($data['value']['meta'])): ?>
                             <?php foreach ($data['value']['meta'] as $metaid => $value): ?>
-                                <?php if(!empty($value)): ?>
+                                <?php // if(!empty($value)): ?>
                                     <input type="text" name="<?=($field)?>[meta][]" id="<?=($field)?>-meta" value="<?=esc_attr($value)?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
-                                <?php endif;?>
+                                <?php // endif;?>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <input type="text" name="<?=($field)?>[meta][]" id="<?=($field)?>-meta" value="" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
+                            <input type="text" name="<?=($field)?>[meta]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-meta" value="" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
                         <?php endif;?>
                         <p class="description">The query that will be used for searching</p>
                     <?php endif;?>
@@ -44,7 +44,7 @@
                                                 <?php endif;?>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <select name="<?=($field)?>[type][]" id="<?=($field)?>-type" <?=($data['required'] ? 'required' : '')?>>
+                                            <select name="<?=($field)?>[type]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-type" <?=($data['required'] ? 'required' : '')?>>
                                                 <option>ID</option>
                                                 <option>NAME</option>
                                                 <option>CSS</option>
@@ -60,12 +60,12 @@
                                             $inputs = ($data['label']=='Custom Meta') ? $data['value']['query'] : [$data['value']['query']];
                                             ?>
                                             <?php foreach ($inputs as $metaid => $value): ?>
-                                                <?php if(!empty($value)): ?>
+                                                <?php // if(!empty($value)): ?>
                                                     <input type="text" name="<?=($field)?>[query]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-query" value="<?=esc_attr($value)?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>><br>
-                                                <?php endif;?>
+                                                <?php // endif;?>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <input type="text" name="<?=($field)?>[query][]" id="<?=($field)?>-query" value="" class="regular-text" <?=($data['required'] ? 'required' : '')?>>
+                                            <input type="text" name="<?=($field)?>[query]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-query" value="" class="regular-text" <?=($data['required'] ? 'required' : '')?>>
                                         <?php endif;?>
                                         <p class="description">The query that will be used for searching</p>
                                     </td>
@@ -96,7 +96,7 @@
                                                 <?php endif;?>
                                             <?php endforeach; ?>
                                         <?php else: ?>
-                                            <select name="<?=($field)?>[selector][]" id="<?=($field)?>-grab" <?=($data['required'] ? 'required' : '')?>>
+                                            <select name="<?=($field)?>[selector]<?=($data['label']=='Custom Meta' ? '[]' : '')?>" id="<?=($field)?>-grab" <?=($data['required'] ? 'required' : '')?>>
                                                 <option value="text">Text</option>
                                                 <option value="html">HTML</option>
                                                 <option value="inputvalue">Input : Value</option>
@@ -112,7 +112,7 @@
                         </table>
 
                         <?php break;
-                        case 'text': ?>
+                        case 'text':?>
                         <?php default: ?>
                         <input type="text" name="<?=($field)?>" id="<?=($field)?>" value="<?=($data['value'])?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>>
                         <?php break; ?>
@@ -123,7 +123,24 @@
                             case '_rss_link':
                             $status = '';
                             if(!empty($data['value'])){
-                                $rsslink = file_get_contents($data['value']);
+                                try{
+                                        $rsslink = file_get_contents($data['value'],false,stream_context_create([
+                                            'http' => [
+                                                'method'  => 'GET',
+                                                'user_agent '  => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+                                                'header' => [
+                                                    'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+                                                    '
+                                                ]
+                                            ]
+                                        ]));
+
+
+
+
+                                }catch(Exception $e){
+                                    $status = 'Invalid Link';
+                                }
                                 try {
                                     $rss = new SimpleXmlElement($rsslink);
                                     if(isset($rss->channel->item)){

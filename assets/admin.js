@@ -12,6 +12,7 @@ jQuery(function($){
             if(data){
                 data = JSON.parse(data);
                 if(typeof data.data != 'undefined'){
+                    $('#feed-details-area tbody').empty();
                     for(var i in data.data){
                         var item = data.data[i];
                         console.log(item);
