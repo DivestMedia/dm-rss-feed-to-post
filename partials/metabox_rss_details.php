@@ -112,6 +112,9 @@
                         </table>
 
                         <?php break;
+                        case 'textarea': ?>
+                        <textarea type="text" name="<?=($field)?>" id="<?=($field)?>" <?=($data['required'] ? 'required' : '')?> style="width:100%;" rows="4"><?=(!empty($data['value']) ? esc_textarea($data['value']) : '')?></textarea>
+                        <?php break;
                         case 'text':?>
                         <?php default: ?>
                         <input type="text" name="<?=($field)?>" id="<?=($field)?>" value="<?=($data['value'])?>" class="regular-text" <?=($data['required'] ? 'required' : '')?>>
@@ -134,10 +137,6 @@
                                                 ]
                                             ]
                                         ]));
-
-
-
-
                                 }catch(Exception $e){
                                     $status = 'Invalid Link';
                                 }

@@ -21,7 +21,9 @@ if(!class_exists('RSSMink')){
             '_rss_post_meta' => null ,
             '_rss_post_category' => null ,
             '_rss_post_published' => null ,
+            '_rss_post_ignore' => null ,
         ];
+        public $ignores = [];
 
         function __CONSTRUCT($id = null){
             if($id){
@@ -53,13 +55,65 @@ if(!class_exists('RSSMink')){
             return $this->browser->getPage();
         }
 
+        function strip_tags_content($text, $tags = '', $invert = FALSE) {
+
+            preg_match_all('/<(.+?)[\s]*\/?[\s]*>/si', trim($tags), $tags);
+            $tags = array_unique($tags[1]);
+
+            if(is_array($tags) AND count($tags) > 0) {
+                if($invert == FALSE) {
+                    return preg_replace('@<(?!(?:'. implode('|', $tags) .')\b)(\w+)\b.*?>.*?</\1>@si', '', $text);
+                }
+                else {
+                    return preg_replace('@<('. implode('|', $tags) .')\b.*?>.*?</\1>@si', '', $text);
+                }
+            }
+            elseif($invert == FALSE) {
+                return preg_replace('@<(\w+)\b.*?>.*?</\1>@si', '', $text);
+            }
+            return $text;
+        }
+
         public function getElemValue($elem,$type){
             switch ($type) {
                 case 'text':
                 return $elem->getText();
                 break;
                 case 'html':
-                return strip_tags($elem->getHtml(),'<br><div><p>');
+                $html = $elem->getHtml();
+                $html = $this->strip_tags_content($html,'<script>',true);
+                $html = $this->strip_tags_content($html,'<iframe>',true);
+                if(!empty($this->ignores)){
+                    // $doc = new DOMDocument();
+                    // $doc->loadHTML($html);
+                    // $selector = new DOMXPath($doc);
+                    // foreach ($this->ignores as $value) {
+                    //
+                    //
+                    //     $elements = [];
+                    //     switch (substr($value,0,1)) {
+                    //         case '#':
+                    //         $elements = $selector->query("//*[@id='" . substr($value,1) . "']");
+                    //         break;
+                    //         case '.':
+                    //         $elements = $selector->query("//*[@class='" . substr($value,1) . "']");
+                    //         break;
+                    //         default:
+                    //         $elements = $selector->query("//*" . substr($value,1) . "");
+                    //         break;
+                    //     }
+                    //     foreach($elements as $e ) {
+                    //         $e->parentNode->removeChild($e);
+                    //     }
+                    // }
+                    // $html = $doc->saveHTML($doc->documentElement);
+                    $htmlremove = [];
+                    foreach ($this->ignores as $ignore) {
+                        $htmlremove[] = $elem->find('css',$ignore)->getHtml();
+                    }
+                    $html = str_replace($htmlremove, "", $html);
+                }
+                return strip_tags($html,'<br><div><p><strong><ul><li><ol>');
                 break;
                 case 'inputvalue':
                 return $elem->getValue();
@@ -81,7 +135,8 @@ if(!class_exists('RSSMink')){
 
             $this->logger('Test','Reading RSS Feed',2);
 
-            $feedrss = new SimplePie($this->rss);
+            $feedrss = new SimplePie();
+            $feedrss->set_feed_url($this->rss);
             $links = [];
             foreach ($feedrss->get_items($offset,$limit) as $k => $item) {
 
@@ -107,6 +162,14 @@ if(!class_exists('RSSMink')){
                 // Visit the Page
                 $this->logger('Grab','Grabbing Feed item #'.($k+1),2);
                 $feed = $this->visit($item->get_permalink());
+
+                if(!empty($this->meta['_rss_post_ignore'])){
+                    $xpathignore = preg_split('/\r\n|[\r\n]/', $this->meta['_rss_post_ignore']);
+                    foreach ($xpathignore as $value) {
+                        $this->ignores[] = $value;
+                    }
+                }
+
 
                 if($feed){
                     foreach ([
@@ -179,12 +242,18 @@ if(!class_exists('RSSMink')){
             }
 
             function logger($type,$message,$level){
-                $this->log[] = [
+                $lognow = [
                     'status' => ['ERROR','OK','INFO','WARNING'][$level], // 0 = Error, 1 = OK , 2 = Info , 3 = Warning
                     'type' => $type,
                     'message' => $message,
                     'time' => date('Y-m-d H:i:s')
                 ];
+                $this->log[] = $lognow;
+
+                $logfile = fopen(DM_RSS_PLUGIN_DIR . "dmrss.log", "a") or die("Unable to open file!");
+                $txt = JSON_ENCODE($lognow)."\n";
+                fwrite($logfile, $txt);
+                fclose($logfile);
             }
 
             function checkIfValidRSS($url){

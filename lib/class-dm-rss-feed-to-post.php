@@ -56,6 +56,12 @@ if(!class_exists('DMRSS')){
                     'type' => 'grabber',
                     'required' => false
                 ],
+                '_rss_post_ignore' => [
+                    'label' => 'Exclude Content via CSS',
+                    'description' => 'Take note that css queries will start searching not from the root but from each of the equivalent HTML type elements above. Separate queries by line. ',
+                    'type' => 'textarea',
+                    'required' => false
+                ],
             ]
         ];
         public $browser = null;
@@ -138,8 +144,11 @@ if(!class_exists('DMRSS')){
 
         public function grab_feeds($id){
             $RSSMink = new RSSMink($id);
+            $this->logger('Grab Feeds','Start',2);
             $feeds = $RSSMink->getRssItems(0,10);
             foreach ($feeds as $key => $feeddata) {
+
+                $this->logger('Grab Feeds','Preparing Data',2);
                 $defaults = [
                     'post_status' => 'publish',
                     'post_type' => 'post',
@@ -176,7 +185,12 @@ if(!class_exists('DMRSS')){
                         }
                     }
                 }
+                if ( ! function_exists( 'post_exists' ) ) {
+                    require_once( ABSPATH . 'wp-admin/includes/post.php' );
+                }
                 if(!post_exists($args['post_title'])){
+
+                    $this->logger('Grab Feeds','Creating New Post',2);
                     $cat_post_meta = get_post_meta($id,'_rss_post_category',true);
                     if(!empty($cat_post_meta)){
                         $catid = [];
@@ -202,6 +216,7 @@ if(!class_exists('DMRSS')){
                     $args = wp_parse_args($args, $defaults);
 
                     if(($insertid = wp_insert_post($args))>0){
+                        $this->logger('Grab Feeds','Post Creation Success . ID : ' . $insertid,1);
                         add_post_meta($insertid, 'dm_rss_feed_id', $id, true);
                         add_post_meta($insertid, 'dm_rss_feed_item_link', $itemurl, true);
                         if(!empty($itemauthor)){
@@ -209,10 +224,10 @@ if(!class_exists('DMRSS')){
                         }
                         $this->grab_thumbnail($args['post-thumbnail'],$insertid);
                     }else{
-                        // Post Insert Failed
+                        $this->logger('Grab Feeds','Post Creation Failed',0);
                     }
                 }else{
-                    // Post Exist
+                    $this->logger('Grab Feeds','Post Already Exist',2);
                 }
 
             }
@@ -245,7 +260,6 @@ if(!class_exists('DMRSS')){
                     'add_new_item' => 'Add New RSS Feed',
                     'edit_item' => 'Edit RSS Feed',
                     'new_item' => 'Add New RSS Feed',
-                    'view_item' => 'View RSS Feed',
                     'search_items' => 'Search RSS Feed',
                     'not_found' => 'No feeds found',
                     'not_found_in_trash' => 'No feeds found in trash'
@@ -261,7 +275,11 @@ if(!class_exists('DMRSS')){
                     'title',
                     'thumbnail',
                 ],
-                'taxonomies' => ['rss_category']
+                'taxonomies' => ['rss_category'],
+                'show_in_admin_bar'   => false,
+                'show_in_nav_menus'   => false,
+                'publicly_queryable'  => false,
+                'query_var'           => false
             ]);
 
             register_taxonomy( 'rss_category',  'rss_feed', [
@@ -455,6 +473,21 @@ if(!class_exists('DMRSS')){
                 )).'">Import Now</a></span></div>';
                 break;
             }
+        }
+
+        function logger($type,$message,$level){
+            $lognow = [
+                'status' => ['ERROR','OK','INFO','WARNING'][$level], // 0 = Error, 1 = OK , 2 = Info , 3 = Warning
+                'type' => $type,
+                'message' => $message,
+                'time' => date('Y-m-d H:i:s')
+            ];
+            $this->log[] = $lognow;
+
+            $logfile = fopen(DM_RSS_PLUGIN_DIR . "dmrss-feeds.log", "a") or die("Unable to open file!");
+            $txt = JSON_ENCODE($lognow)."\n";
+            fwrite($logfile, $txt);
+            fclose($logfile);
         }
     }
 
