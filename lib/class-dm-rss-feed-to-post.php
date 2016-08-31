@@ -164,7 +164,7 @@ if(!class_exists('DMRSS')){
                             case 'post-title':
                             $args['post_title'] = $data['value'];
                             break;
-                            case 'post-date':
+                            case 'published-date':
                             $args['post_date'] = date('Y-m-d H:i:s',strtotime($data['value']));
                             break;
                             case 'post-thumbnail':
