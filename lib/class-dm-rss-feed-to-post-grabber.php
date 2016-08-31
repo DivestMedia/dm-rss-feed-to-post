@@ -109,7 +109,10 @@ if(!class_exists('RSSMink')){
                     // $html = $doc->saveHTML($doc->documentElement);
                     $htmlremove = [];
                     foreach ($this->ignores as $ignore) {
-                        $htmlremove[] = $elem->find('css',$ignore)->getHtml();
+                        $ignoreelem = $elem->find('css',$ignore);
+                        if($ignoreelem){
+                            $htmlremove[] = $ignoreelem->getHtml();
+                        }
                     }
                     $html = str_replace($htmlremove, "", $html);
                 }
@@ -137,7 +140,13 @@ if(!class_exists('RSSMink')){
 
             $feedrss = new SimplePie();
             $feedrss->set_feed_url($this->rss);
+            $feedrss->set_cache_location( ABSPATH . '/wp-content/cache');
+            $feedrss->init();
+            $feedrss->handle_content_type();
             $links = [];
+            if(count($feedrss->get_items($offset,$limit))<1){
+                $this->logger('Test','Reading RSS Feed : No Items fetched',0);
+            }
             foreach ($feedrss->get_items($offset,$limit) as $k => $item) {
 
                 $links[$k] = [

@@ -42,7 +42,7 @@ jQuery(function($){
 
     $('#add-meta-button').click(function(e){
         e.preventDefault();
-        $('.form-table > tbody > tr:nth-last-child(2)').find('[name^="_rss_post_meta"]:last-of-type').each(function(){
+        $('.form-table > tbody > tr:nth-last-child(3)').find('[name^="_rss_post_meta"]:last-of-type').each(function(){
             var $newelem = $(this).clone();
             $newelem.val('');
             $newelem.insertAfter($(this));
