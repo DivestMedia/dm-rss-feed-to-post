@@ -140,7 +140,7 @@ if(!class_exists('RSSMink')){
 
             $feedrss = new SimplePie();
             $feedrss->set_feed_url($this->rss);
-            $feedrss->set_cache_location( ABSPATH . '/wp-content/cache');
+            $feedrss->set_cache_location( ABSPATH . 'wp-content/cache');
             $feedrss->init();
             $feedrss->handle_content_type();
             $links = [];
@@ -265,16 +265,35 @@ if(!class_exists('RSSMink')){
                 fclose($logfile);
             }
 
+            function file_get_contents_curl($url) {
+                $ch = curl_init();
+
+                curl_setopt($ch, CURLOPT_AUTOREFERER, TRUE);
+                curl_setopt($ch, CURLOPT_HEADER, 0);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+
+                $data = curl_exec($ch);
+                curl_close($ch);
+
+                return $data;
+            }
+
             function checkIfValidRSS($url){
                 $this->logger('Test','Checking RSS URL',2);
                 if($this->checkUrl($url)){
                     try {
-                        $rss = new SimpleXmlElement(file_get_contents($url,false,stream_context_create([
-                            "ssl"=> [
-                                "verify_peer"=>false,
-                                "verify_peer_name"=>false,
-                            ],
-                        ])));
+
+                        $rss = new SimpleXmlElement($this->file_get_contents_curl($url));
+
+                        // $rss = new SimpleXmlElement(file_get_contents($url,false,stream_context_create([
+                        //     "ssl"=> [
+                        //         "verify_peer"=>false,
+                        //         "verify_peer_name"=>false,
+                        //     ],
+                        // ])));
+
                         if(isset($rss->channel->item)){
                             $items = (int)$rss->channel->item->count();
                             $this->logger('Test','RSS has '.$items.' items',2);

@@ -350,6 +350,21 @@ if(!class_exists('DMRSS')){
             return 0;
         }
 
+        function file_get_contents_curl($url) {
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_AUTOREFERER, TRUE);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+
+            $data = curl_exec($ch);
+            curl_close($ch);
+
+            return $data;
+        }
+
 
         public function grab_thumbnail( $image_url, $post_id , $thumbnail = true ){
             $upload_dir = wp_upload_dir();
@@ -367,8 +382,11 @@ if(!class_exists('DMRSS')){
 
             $context  = stream_context_create($opts);
 
-            $image_data = file_get_contents($image_url,false,$context);
-
+            // $image_data = file_get_contents($image_url,false,$context);
+            $image_data = $this->file_get_contents_curl($image_url);
+            if(!is_array(getimagesize($image_url))){
+                return false;
+            }
 
             $filename = basename($image_url);
 
