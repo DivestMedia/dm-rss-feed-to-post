@@ -62,6 +62,12 @@ if(!class_exists('DMRSS')){
                     'type' => 'textarea',
                     'required' => false
                 ],
+                '_rss_post_tags' => [
+                    'label' => 'Post Tags',
+                    'description' => 'Assign Post Tags if some of the provided keywords were found inside the article content.',
+                    'type' => 'keywords',
+                    'required' => false
+                ],
             ]
         ];
         public $browser = null;
@@ -132,6 +138,34 @@ if(!class_exists('DMRSS')){
                     return;
                 }
                 foreach ($fields as $key => $data) {
+                    if($key=='_rss_post_tags'){
+                        $postdata = $_POST[$key];
+                        foreach ($postdata as $postkey => $dataarray) {
+                            foreach ($dataarray as $datakey => $datavalue) {
+                                if(empty($datavalue)){
+                                    unset($postdata['meta'][$datakey]);
+                                    unset($postdata['type'][$datakey]);
+                                    unset($postdata['query'][$datakey]);
+                                    unset($postdata['selector'][$datakey]);
+                                }
+                            }
+                        }
+                        $_POST[$key] = $postdata;
+                    }
+                    if($key=='_rss_post_meta'){
+                        $postdata = $_POST[$key];
+                        foreach ($postdata as $postkey => $dataarray) {
+                            foreach ($dataarray as $datakey => $datavalue) {
+                                if(empty($datavalue)){
+                                    unset($postdata['meta'][$datakey]);
+                                    unset($postdata['type'][$datakey]);
+                                    unset($postdata['query'][$datakey]);
+                                    unset($postdata['selector'][$datakey]);
+                                }
+                            }
+                        }
+                        $_POST[$key] = $postdata;
+                    }
                     $this->save_meta_value($post->ID,$key,stripslashes_deep($_POST[$key]));
                 }
             }
@@ -155,10 +189,37 @@ if(!class_exists('DMRSS')){
                 ];
                 $itemurl = '';
                 $itemauthor = '';
+                $itemtags = [];
+                var_dump($feeddata);
+                break;
                 foreach ($feeddata as $key => $data) {
                     if(substr( $data['key'], 0, 5 ) === "meta-"){
                         if(!isset($args['meta_input'])) $args['meta_input'] = [];
                         $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
+                    }
+                    elseif(substr( $data['key'], 0, 5 ) === "tags-"){
+                        if(!isset($args['meta_input'])) $args['meta_input'] = [];
+                        $newtag = ucwords(substr( $data['key'], 5));
+                        switch ($data['value']['validate']) {
+                            case 'one':
+                            if((int)$data['value']['found'] > 0){
+                                $itemtags[] = $newtag;
+                            }
+                            break;
+                            case 'none':
+                            if((int)$data['value']['found'] < 1){
+                                $itemtags[] = $newtag;
+                            }
+                            break;
+                            case 'all':
+                            default:
+                            if((int)$data['value']['found'] == count($data['value']['keywords'])){
+                                $itemtags[] = $newtag;
+                            }
+                            break;
+                        }
+
+                        // $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
                     }else{
                         switch ($data['key']) {
                             case 'post-title':
@@ -222,6 +283,11 @@ if(!class_exists('DMRSS')){
                         if(!empty($itemauthor)){
                             add_post_meta($insertid, 'dm_rss_feed_item_author', $itemauthor, true);
                         }
+
+                        if(!empty($itemtags)){
+                            wp_set_post_tags( $insertid, $itemtags, true );
+                        }
+
                         $this->grab_thumbnail($args['post-thumbnail'],$insertid);
                     }else{
                         $this->logger('Grab Feeds','Post Creation Failed',0);

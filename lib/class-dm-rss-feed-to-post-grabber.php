@@ -19,6 +19,7 @@ if(!class_exists('RSSMink')){
             '_rss_post_content' => null ,
             '_rss_post_author' => null ,
             '_rss_post_meta' => null ,
+            '_rss_post_tags' => null ,
             '_rss_post_category' => null ,
             '_rss_post_published' => null ,
             '_rss_post_ignore' => null ,
@@ -128,6 +129,9 @@ if(!class_exists('RSSMink')){
                 $type = str_replace('attr','',$type);
                 return $elem->getAttribute($type);
                 break;
+                case 'asis':
+                return $elem;
+                break;
                 default:
                 return $elem->getOuterHtml();
                 break;
@@ -186,166 +190,226 @@ if(!class_exists('RSSMink')){
                         '_rss_post_published' => 'Published Date',
                         '_rss_post_content' => 'Post Content',
                         '_rss_post_author' => 'Post Author',
-                        '_rss_post_meta' => 'Custom Meta'
+                        '_rss_post_meta' => 'Custom Meta',
+                        '_rss_post_tags' => 'Post Tags'
                         ] as $field => $label) {
 
                             $d = $this->meta[$field];
 
-                            if($field !== '_rss_post_meta'){
-                                $dd = [];
-                                foreach ($d as $kkk => $vvv) {
-                                    $dd[$kkk][] = $vvv;
+                            if(!in_array($field,[
+                                '_rss_post_meta',
+                                '_rss_post_tags',
+                                ])){
+                                    $dd = [];
+                                    foreach ($d as $kkk => $vvv) {
+                                        $dd[$kkk][] = $vvv;
+                                    }
+
+                                    $d = $dd;
                                 }
 
-                                $d = $dd;
+                                // Lookup Type
+                                foreach ($d['type'] as $kk => $vv) {
+                                    $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.(!in_array($field,[
+                                        '_rss_post_meta',
+                                        '_rss_post_tags',
+                                        ]) ? $field : $d['meta'][$kk]),2);
+                                        switch ($vv) {
+                                            case 'Full-Content':
+                                            case 'Title Only':
+                                            case 'Content Only':
+                                            $found = 0;
+                                            $feedgrabtitle = '';
+                                            $feedgrabcontent = '';
+                                            $feedgrabbody = '';
+                                            foreach ($links[$k] as $linkdata) {
+                                                if($linkdata['key']=='post-title'){
+                                                    $feedgrabtitle = strip_tags($linkdata['value']);
+                                                }
+                                                if($linkdata['key']=='post-content'){
+                                                    $feedgrabcontent = strip_tags($linkdata['value']);
+                                                }
+                                            }
+
+                                            if($vv=='Full-Content'){
+                                                $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
+                                            }elseif($vv=='Title Only'){
+                                                $feedgrabbody = $feedgrabtitle;
+                                            }elseif($vv=='Content Only'){
+                                                $feedgrabbody = $feedgrabcontent;
+                                            }
+
+                                            $kw = explode(',',$d['query'][$kk]);
+                                            
+                                            foreach ($kw as $kwk => $kwv) {
+                                                $kwv = trim($kwv);
+                                                if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
+                                                    $found++;
+                                                }
+                                            }
+
+                                            $elem = [
+                                                'found' => $found,
+                                                'keywords' => $kw,
+                                                'type' => $vv,
+                                                'validate' => $d['selector'][$kk]
+                                            ];
+
+                                            $d['selector'][$kk] = 'asis';
+                                            break;
+                                            case 'XPATH':
+                                            $elem = $feed->find('xpath', $d['query'][$kk]);
+                                            break;
+                                            case 'CSS':
+                                            $elem = $feed->find('css', $d['query'][$kk]);
+                                            break;
+                                            case 'ID':
+                                            $elem = $feed->findById(trim($d['query'][$kk],'#'));
+                                            break;
+                                            case 'NAME':
+                                            default:
+                                            $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
+                                            break;
+                                        }
+
+
+                                        if(in_array($field,['_rss_post_meta',])){
+                                            $label = 'Meta: ' . $d['meta'][$kk];
+                                        }
+
+                                        if(in_array($field,['_rss_post_tags',])){
+                                            $label = 'Tags: ' . $d['meta'][$kk];
+                                        }
+
+                                        if($elem !== NULL){
+                                            $links[$k][] = [
+                                                'label' => $label,
+                                                'key' => $this->slug($label),
+                                                'value' => $this->getElemValue($elem,$d['selector'][$kk])
+                                            ];
+                                            $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                                '_rss_post_meta',
+                                                '_rss_post_tags',
+                                                ]) ? $field : $d['meta'][$kk]) . ' found',1);
+                                            }
+                                            else {
+                                                $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                                    '_rss_post_meta',
+                                                    '_rss_post_tags',
+                                                    ]) ? $field : $d['meta'][$kk]) . ' is empty',3);
+                                                    $links[$k][] = [
+                                                        'label' => $label,
+                                                        'key' => $this->slug($label),
+                                                        'value' => '-'
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                    }else{
+                                        $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
+                                    }
+                                }
+
+
+                                return $links;
                             }
 
-                            // Lookup Type
-                            foreach ($d['type'] as $kk => $vv) {
-                                $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]),2);
-                                switch ($vv) {
-                                    case 'XPATH':
-                                    $elem = $feed->find('xpath', $d['query'][$kk]);
-                                    break;
-                                    case 'CSS':
-                                    $elem = $feed->find('css', $d['query'][$kk]);
-                                    break;
-                                    case 'ID':
-                                    $elem = $feed->findById(trim($d['query'][$kk],'#'));
-                                    break;
-                                    case 'NAME':
-                                    default:
-                                    $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
-                                    break;
+                            function logger($type,$message,$level){
+                                $lognow = [
+                                    'status' => ['ERROR','OK','INFO','WARNING'][$level], // 0 = Error, 1 = OK , 2 = Info , 3 = Warning
+                                    'type' => $type,
+                                    'message' => $message,
+                                    'time' => date('Y-m-d H:i:s')
+                                ];
+                                $this->log[] = $lognow;
+
+                                $logfile = fopen(DM_RSS_PLUGIN_DIR . "dmrss.log", "a") or die("Unable to open file!");
+                                $txt = JSON_ENCODE($lognow)."\n";
+                                fwrite($logfile, $txt);
+                                fclose($logfile);
+                            }
+
+                            function file_get_contents_curl($url) {
+                                $ch = curl_init();
+
+                                curl_setopt($ch, CURLOPT_AUTOREFERER, TRUE);
+                                curl_setopt($ch, CURLOPT_HEADER, 0);
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                                curl_setopt($ch, CURLOPT_URL, $url);
+                                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+
+                                $data = curl_exec($ch);
+                                curl_close($ch);
+
+                                return $data;
+                            }
+
+                            function checkIfValidRSS($url){
+                                $this->logger('Test','Checking RSS URL',2);
+                                if($this->checkUrl($url)){
+                                    try {
+
+                                        $rss = new SimpleXmlElement($this->file_get_contents_curl($url));
+
+                                        // $rss = new SimpleXmlElement(file_get_contents($url,false,stream_context_create([
+                                        //     "ssl"=> [
+                                        //         "verify_peer"=>false,
+                                        //         "verify_peer_name"=>false,
+                                        //     ],
+                                        // ])));
+
+                                        if(isset($rss->channel->item)){
+                                            $items = (int)$rss->channel->item->count();
+                                            $this->logger('Test','RSS has '.$items.' items',2);
+                                            return $items;
+                                        }else{
+                                            $this->logger('Test','RSS has no items',3);
+                                            return 0;
+                                        }
+                                    }
+                                    catch(Exception $e){
+                                        $this->logger('Test','RSS is invalid . Error : '.$e->getMessage(),0);
+                                        return false;
+                                    }
                                 }
 
+                                $this->logger('Test','RSS URL is unreachable',0);
+                                return false;
+                            }
 
-                                if($field == '_rss_post_meta'){
-                                    $label = 'Meta: ' . $d['meta'][$kk];
+                            function checkUrl($url=NULL){
+                                $this->logger('Test','Pinging URL Address',2);
+                                if($url == NULL){
+                                    $this->logger('Test','No URL given',0);
+                                    return false;
                                 }
-                                if($elem !== NULL){
-                                    $links[$k][] = [
-                                        'label' => $label,
-                                        'key' => $this->slug($label),
-                                        'value' => $this->getElemValue($elem,$d['selector'][$kk])
-                                    ];
-                                    $this->logger('Grab','Feed item #'.($k+1).'. '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]) . ' found',1);
-                                }
-                                else {
-                                    $this->logger('Grab','Feed item #'.($k+1).'. '.($field !== '_rss_post_meta' ? $field : $d['meta'][$kk]) . ' is empty',3);
-                                    $links[$k][] = [
-                                        'label' => $label,
-                                        'key' => $this->slug($label),
-                                        'value' => '-'
-                                    ];
+                                $ch = curl_init($url);
+                                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+                                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                                $data = curl_exec($ch);
+                                $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                                curl_close($ch);
+                                if($httpcode>=200 && $httpcode<300){
+                                    $this->logger('Test','URL reachable',1);
+                                    return true;
+                                } else {
+                                    $this->logger('Test','URL unreachable',0);
+                                    return false;
                                 }
                             }
-                        }
-                    }else{
-                        $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
-                    }
-                }
 
-
-                return $links;
-            }
-
-            function logger($type,$message,$level){
-                $lognow = [
-                    'status' => ['ERROR','OK','INFO','WARNING'][$level], // 0 = Error, 1 = OK , 2 = Info , 3 = Warning
-                    'type' => $type,
-                    'message' => $message,
-                    'time' => date('Y-m-d H:i:s')
-                ];
-                $this->log[] = $lognow;
-
-                $logfile = fopen(DM_RSS_PLUGIN_DIR . "dmrss.log", "a") or die("Unable to open file!");
-                $txt = JSON_ENCODE($lognow)."\n";
-                fwrite($logfile, $txt);
-                fclose($logfile);
-            }
-
-            function file_get_contents_curl($url) {
-                $ch = curl_init();
-
-                curl_setopt($ch, CURLOPT_AUTOREFERER, TRUE);
-                curl_setopt($ch, CURLOPT_HEADER, 0);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
-
-                $data = curl_exec($ch);
-                curl_close($ch);
-
-                return $data;
-            }
-
-            function checkIfValidRSS($url){
-                $this->logger('Test','Checking RSS URL',2);
-                if($this->checkUrl($url)){
-                    try {
-
-                        $rss = new SimpleXmlElement($this->file_get_contents_curl($url));
-
-                        // $rss = new SimpleXmlElement(file_get_contents($url,false,stream_context_create([
-                        //     "ssl"=> [
-                        //         "verify_peer"=>false,
-                        //         "verify_peer_name"=>false,
-                        //     ],
-                        // ])));
-
-                        if(isset($rss->channel->item)){
-                            $items = (int)$rss->channel->item->count();
-                            $this->logger('Test','RSS has '.$items.' items',2);
-                            return $items;
-                        }else{
-                            $this->logger('Test','RSS has no items',3);
-                            return 0;
+                            public static function slug($title, $separator = '-')
+                            {
+                                // $title = static::ascii($title);
+                                // Convert all dashes/underscores into separator
+                                $flip = $separator == '-' ? '_' : '-';
+                                $title = preg_replace('!['.preg_quote($flip).']+!u', $separator, $title);
+                                // Remove all characters that are not the separator, letters, numbers, or whitespace.
+                                $title = preg_replace('![^'.preg_quote($separator).'\pL\pN\s]+!u', '', mb_strtolower($title));
+                                // Replace all separator characters and whitespace by a single separator
+                                $title = preg_replace('!['.preg_quote($separator).'\s]+!u', $separator, $title);
+                                return trim($title, $separator);
+                            }
                         }
                     }
-                    catch(Exception $e){
-                        $this->logger('Test','RSS is invalid . Error : '.$e->getMessage(),0);
-                        return false;
-                    }
-                }
-
-                $this->logger('Test','RSS URL is unreachable',0);
-                return false;
-            }
-
-            function checkUrl($url=NULL){
-                $this->logger('Test','Pinging URL Address',2);
-                if($url == NULL){
-                    $this->logger('Test','No URL given',0);
-                    return false;
-                }
-                $ch = curl_init($url);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                $data = curl_exec($ch);
-                $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                if($httpcode>=200 && $httpcode<300){
-                    $this->logger('Test','URL reachable',1);
-                    return true;
-                } else {
-                    $this->logger('Test','URL unreachable',0);
-                    return false;
-                }
-            }
-
-            public static function slug($title, $separator = '-')
-            {
-                // $title = static::ascii($title);
-                // Convert all dashes/underscores into separator
-                $flip = $separator == '-' ? '_' : '-';
-                $title = preg_replace('!['.preg_quote($flip).']+!u', $separator, $title);
-                // Remove all characters that are not the separator, letters, numbers, or whitespace.
-                $title = preg_replace('![^'.preg_quote($separator).'\pL\pN\s]+!u', '', mb_strtolower($title));
-                // Replace all separator characters and whitespace by a single separator
-                $title = preg_replace('!['.preg_quote($separator).'\s]+!u', $separator, $title);
-                return trim($title, $separator);
-            }
-        }
-    }

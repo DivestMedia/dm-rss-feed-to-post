@@ -42,12 +42,38 @@ jQuery(function($){
 
     $('#add-meta-button').click(function(e){
         e.preventDefault();
-        $('.form-table > tbody > tr:nth-last-child(3)').find('[name^="_rss_post_meta"]:last-of-type').each(function(){
+        $('.row-custom-meta').find('[name^="_rss_post_meta"]:last-of-type').each(function(){
             var $newelem = $(this).clone();
             $newelem.val('');
             $newelem.insertAfter($(this));
             $('<br>').insertBefore($newelem);
         });
     });
+
+    $('#add-tag-button').click(function(e){
+        e.preventDefault();
+        $('.row-post-tags').find('[name^="_rss_post_tags"]:last-of-type').each(function(){
+            var $newelem = $(this).clone();
+            $newelem.val('');
+            $newelem.insertAfter($(this));
+            $('<br>').insertBefore($newelem);
+        });
+    });
+
+    // $('form#post').on('submit',function(event){
+    //     var index = 0;
+    //     $('.row-post-tags').find('[name^="_rss_post_tags[meta]"]').each(function(){
+    //         if($(this).val().trim().length==0){
+    //                 $('.row-post-tags').find('name^="_rss_post_tags[meta]"]').eq(index).remove();
+    //                 $('.row-post-tags').find('name^="_rss_post_tags[type]"]').eq(index).remove();
+    //                 $('.row-post-tags').find('name^="_rss_post_tags[query]"]').eq(index).remove();
+    //                 $('.row-post-tags').find('name^="_rss_post_tags[selector]"]').eq(index).remove();
+    //         }
+    //         index++;
+    //     });
+    //
+    //     event.preventDefault();
+    //     return false;
+    // });
 
 });
