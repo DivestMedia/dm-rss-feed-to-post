@@ -190,17 +190,18 @@ if(!class_exists('DMRSS')){
                 $itemurl = '';
                 $itemauthor = '';
                 $itemtags = [];
-                var_dump($feeddata);
-                break;
                 foreach ($feeddata as $key => $data) {
                     if(substr( $data['key'], 0, 5 ) === "meta-"){
                         if(!isset($args['meta_input'])) $args['meta_input'] = [];
                         $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
                     }
                     elseif(substr( $data['key'], 0, 5 ) === "tags-"){
+
                         if(!isset($args['meta_input'])) $args['meta_input'] = [];
+
                         $newtag = ucwords(substr( $data['key'], 5));
-                        switch ($data['value']['validate']) {
+
+                        switch ($data['value']['validate']){
                             case 'one':
                             if((int)$data['value']['found'] > 0){
                                 $itemtags[] = $newtag;
@@ -253,20 +254,28 @@ if(!class_exists('DMRSS')){
 
                     $this->logger('Grab Feeds','Creating New Post',2);
                     $cat_post_meta = get_post_meta($id,'_rss_post_category',true);
+
                     if(!empty($cat_post_meta)){
+
                         $catid = [];
                         $cats = explode(',',$cat_post_meta);
                         foreach ($cats as $key => $value) {
+
                             $catobj = get_term_by('name',$value,'category');
+
                             if(!empty($catobj)){
+
                                 $catid[] = $catobj->term_id;
+
                             }else{
+
                                 if(!function_exists('wp_create_category')){
                                     require_once ABSPATH . 'wp-admin/includes/taxonomy.php';
                                 }
                                 if($idhere = wp_create_category($value)){
                                     $catid[] = $idhere;
                                 };
+                                
                             }
                         }
                         if(!empty($catid)){

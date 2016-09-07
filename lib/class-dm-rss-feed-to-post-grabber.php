@@ -85,29 +85,6 @@ if(!class_exists('RSSMink')){
                 $html = $this->strip_tags_content($html,'<script>',true);
                 $html = $this->strip_tags_content($html,'<iframe>',true);
                 if(!empty($this->ignores)){
-                    // $doc = new DOMDocument();
-                    // $doc->loadHTML($html);
-                    // $selector = new DOMXPath($doc);
-                    // foreach ($this->ignores as $value) {
-                    //
-                    //
-                    //     $elements = [];
-                    //     switch (substr($value,0,1)) {
-                    //         case '#':
-                    //         $elements = $selector->query("//*[@id='" . substr($value,1) . "']");
-                    //         break;
-                    //         case '.':
-                    //         $elements = $selector->query("//*[@class='" . substr($value,1) . "']");
-                    //         break;
-                    //         default:
-                    //         $elements = $selector->query("//*" . substr($value,1) . "");
-                    //         break;
-                    //     }
-                    //     foreach($elements as $e ) {
-                    //         $e->parentNode->removeChild($e);
-                    //     }
-                    // }
-                    // $html = $doc->saveHTML($doc->documentElement);
                     $htmlremove = [];
                     foreach ($this->ignores as $ignore) {
                         $ignoreelem = $elem->find('css',$ignore);
@@ -222,6 +199,7 @@ if(!class_exists('RSSMink')){
                                             $feedgrabtitle = '';
                                             $feedgrabcontent = '';
                                             $feedgrabbody = '';
+
                                             foreach ($links[$k] as $linkdata) {
                                                 if($linkdata['key']=='post-title'){
                                                     $feedgrabtitle = strip_tags($linkdata['value']);
@@ -240,7 +218,7 @@ if(!class_exists('RSSMink')){
                                             }
 
                                             $kw = explode(',',$d['query'][$kk]);
-                                            
+
                                             foreach ($kw as $kwk => $kwv) {
                                                 $kwv = trim($kwv);
                                                 if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
@@ -271,7 +249,6 @@ if(!class_exists('RSSMink')){
                                             $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
                                             break;
                                         }
-
 
                                         if(in_array($field,['_rss_post_meta',])){
                                             $label = 'Meta: ' . $d['meta'][$kk];
@@ -406,9 +383,9 @@ if(!class_exists('RSSMink')){
                                 $flip = $separator == '-' ? '_' : '-';
                                 $title = preg_replace('!['.preg_quote($flip).']+!u', $separator, $title);
                                 // Remove all characters that are not the separator, letters, numbers, or whitespace.
-                                $title = preg_replace('![^'.preg_quote($separator).'\pL\pN\s]+!u', '', mb_strtolower($title));
+                                $title = preg_replace('![^'.preg_quote($separator).''.preg_quote('/').'\pL\pN\s]+!u', '', mb_strtolower($title));
                                 // Replace all separator characters and whitespace by a single separator
-                                $title = preg_replace('!['.preg_quote($separator).'\s]+!u', $separator, $title);
+                                $title = preg_replace('!['.preg_quote($separator).''.preg_quote('/').'\s]+!u', $separator, $title);
                                 return trim($title, $separator);
                             }
                         }

@@ -15,11 +15,14 @@ jQuery(function($){
                     $('#feed-details-area tbody').empty();
                     for(var i in data.data){
                         var item = data.data[i];
-                        console.log(item);
                         for(var ii in item){
                             var d = item[ii];
                             if(typeof d.key != 'undefined'){
-                                $('#feed-details-area tbody').append('<tr id="'+d.key+'"><th style="width:300px;">'+d.label+'</th><td>'+d.value+'</td></tr>');
+                                if(d.key.search('tags-')!=-1){
+                                    $('#feed-details-area tbody').append('<tr id="'+d.key+'"><th style="width:300px;">'+d.label+'</th><td>'+d.value.found+'</td></tr>');
+                                }else{
+                                    $('#feed-details-area tbody').append('<tr id="'+d.key+'"><th style="width:300px;">'+d.label+'</th><td>'+d.value+'</td></tr>');
+                                }
                             }
                         }
                     }
