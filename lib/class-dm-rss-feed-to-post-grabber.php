@@ -82,8 +82,6 @@ if(!class_exists('RSSMink')){
                 break;
                 case 'html':
                 $html = $elem->getHtml();
-                $html = $this->strip_tags_content($html,'<script>',true);
-                $html = $this->strip_tags_content($html,'<iframe>',true);
                 if(!empty($this->ignores)){
                     $htmlremove = [];
                     foreach ($this->ignores as $ignore) {
@@ -94,6 +92,8 @@ if(!class_exists('RSSMink')){
                     }
                     $html = str_replace($htmlremove, "", $html);
                 }
+                $html = $this->strip_tags_content($html,'<script>',true);
+                $html = $this->strip_tags_content($html,'<iframe>',true);
                 return strip_tags($html,'<br><div><p><strong><ul><li><ol>');
                 break;
                 case 'inputvalue':

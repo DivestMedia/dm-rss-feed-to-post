@@ -275,7 +275,7 @@ if(!class_exists('DMRSS')){
                                 if($idhere = wp_create_category($value)){
                                     $catid[] = $idhere;
                                 };
-                                
+
                             }
                         }
                         if(!empty($catid)){
@@ -470,6 +470,11 @@ if(!class_exists('DMRSS')){
             if($querypos!==FALSE){
                 $filename = substr($filename,0,$querypos);
             }
+
+            if(empty($filename)):
+                $filename = get_post($post_id)->post_name;
+            endif;
+
             if(wp_mkdir_p($upload_dir['path']))     $file = $upload_dir['path'] . '/' . $filename;
             else                                    $file = $upload_dir['basedir'] . '/' . $filename;
             file_put_contents($file, $image_data);
