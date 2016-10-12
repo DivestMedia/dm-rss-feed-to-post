@@ -218,7 +218,7 @@
                                 $status = '';
                                 if(!empty($data['value'])){
                                     try{
-                                        $rsslink = file_get_contents($data['value'],false,stream_context_create([
+                                        $rsslink = file_get_contents_curl($data['value'],false,stream_context_create([
                                             'http' => [
                                                 'method'  => 'GET',
                                                 'user_agent '  => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
