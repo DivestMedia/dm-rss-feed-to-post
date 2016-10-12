@@ -115,7 +115,7 @@ if(!class_exists('RSSMink')){
             }
         }
 
-        public function getRssItems($offset = 0,$limit = 10){
+        public function getRssItems($offset = 0,$limit = 10,$save_item_url = false){
 
             $this->logger('Test','Reading RSS Feed',2);
 
@@ -128,6 +128,12 @@ if(!class_exists('RSSMink')){
             if(count($feedrss->get_items($offset,$limit))<1){
                 $this->logger('Test','Reading RSS Feed : No Items fetched',0);
             }
+            if($save_item_url){
+                foreach ($feedrss->get_items($offset,$limit) as $k => $item) {
+                    $links[$k] = array('title'=>esc_html($item->get_title()),'url'=>esc_html($item->get_permalink()),'description'=>esc_html($item->get_description()),'date'=>$item->get_date());
+                }
+                return $links;
+            }else{
             foreach ($feedrss->get_items($offset,$limit) as $k => $item) {
 
                 $links[$k] = [
@@ -185,111 +191,111 @@ if(!class_exists('RSSMink')){
                                     $d = $dd;
                                 }
 
-                                // Lookup Type
-                                foreach ($d['type'] as $kk => $vv) {
-                                    $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.(!in_array($field,[
-                                        '_rss_post_meta',
-                                        '_rss_post_tags',
-                                        ]) ? $field : $d['meta'][$kk]),2);
-                                        switch ($vv) {
-                                            case 'Full-Content':
-                                            case 'Title Only':
-                                            case 'Content Only':
-                                            $found = 0;
-                                            $feedgrabtitle = '';
-                                            $feedgrabcontent = '';
-                                            $feedgrabbody = '';
+                            // Lookup Type
+                            foreach ($d['type'] as $kk => $vv) {
+                                $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.(!in_array($field,[
+                                    '_rss_post_meta',
+                                    '_rss_post_tags',
+                                    ]) ? $field : $d['meta'][$kk]),2);
+                                switch ($vv) {
+                                    case 'Full-Content':
+                                    case 'Title Only':
+                                    case 'Content Only':
+                                    $found = 0;
+                                    $feedgrabtitle = '';
+                                    $feedgrabcontent = '';
+                                    $feedgrabbody = '';
 
-                                            foreach ($links[$k] as $linkdata) {
-                                                if($linkdata['key']=='post-title'){
-                                                    $feedgrabtitle = strip_tags($linkdata['value']);
-                                                }
-                                                if($linkdata['key']=='post-content'){
-                                                    $feedgrabcontent = strip_tags($linkdata['value']);
-                                                }
-                                            }
-
-                                            if($vv=='Full-Content'){
-                                                $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
-                                            }elseif($vv=='Title Only'){
-                                                $feedgrabbody = $feedgrabtitle;
-                                            }elseif($vv=='Content Only'){
-                                                $feedgrabbody = $feedgrabcontent;
-                                            }
-
-                                            $kw = explode(',',$d['query'][$kk]);
-
-                                            foreach ($kw as $kwk => $kwv) {
-                                                $kwv = trim($kwv);
-                                                if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
-                                                    $found++;
-                                                }
-                                            }
-
-                                            $elem = [
-                                                'found' => $found,
-                                                'keywords' => $kw,
-                                                'type' => $vv,
-                                                'validate' => $d['selector'][$kk]
-                                            ];
-
-                                            $d['selector'][$kk] = 'asis';
-                                            break;
-                                            case 'XPATH':
-                                            $elem = $feed->find('xpath', $d['query'][$kk]);
-                                            break;
-                                            case 'CSS':
-                                            $elem = $feed->find('css', $d['query'][$kk]);
-                                            break;
-                                            case 'ID':
-                                            $elem = $feed->findById(trim($d['query'][$kk],'#'));
-                                            break;
-                                            case 'NAME':
-                                            default:
-                                            $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
-                                            break;
+                                    foreach ($links[$k] as $linkdata) {
+                                        if($linkdata['key']=='post-title'){
+                                            $feedgrabtitle = strip_tags($linkdata['value']);
                                         }
-
-                                        if(in_array($field,['_rss_post_meta',])){
-                                            $label = 'Meta: ' . $d['meta'][$kk];
+                                        if($linkdata['key']=='post-content'){
+                                            $feedgrabcontent = strip_tags($linkdata['value']);
                                         }
-
-                                        if(in_array($field,['_rss_post_tags',])){
-                                            $label = 'Tags: ' . $d['meta'][$kk];
-                                        }
-
-                                        if($elem !== NULL){
-                                            $links[$k][] = [
-                                                'label' => $label,
-                                                'key' => $this->slug($label),
-                                                'value' => $this->getElemValue($elem,$d['selector'][$kk])
-                                            ];
-                                            $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
-                                                '_rss_post_meta',
-                                                '_rss_post_tags',
-                                                ]) ? $field : $d['meta'][$kk]) . ' found',1);
-                                            }
-                                            else {
-                                                $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
-                                                    '_rss_post_meta',
-                                                    '_rss_post_tags',
-                                                    ]) ? $field : $d['meta'][$kk]) . ' is empty',3);
-                                                    $links[$k][] = [
-                                                        'label' => $label,
-                                                        'key' => $this->slug($label),
-                                                        'value' => '-'
-                                                    ];
-                                                }
-                                            }
-                                        }
-                                    }else{
-                                        $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
                                     }
+
+                                    if($vv=='Full-Content'){
+                                        $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
+                                    }elseif($vv=='Title Only'){
+                                        $feedgrabbody = $feedgrabtitle;
+                                    }elseif($vv=='Content Only'){
+                                        $feedgrabbody = $feedgrabcontent;
+                                    }
+
+                                    $kw = explode(',',$d['query'][$kk]);
+
+                                    foreach ($kw as $kwk => $kwv) {
+                                        $kwv = trim($kwv);
+                                        if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
+                                            $found++;
+                                        }
+                                    }
+
+                                    $elem = [
+                                        'found' => $found,
+                                        'keywords' => $kw,
+                                        'type' => $vv,
+                                        'validate' => $d['selector'][$kk]
+                                    ];
+
+                                    $d['selector'][$kk] = 'asis';
+                                    break;
+                                    case 'XPATH':
+                                    $elem = $feed->find('xpath', $d['query'][$kk]);
+                                    break;
+                                    case 'CSS':
+                                    $elem = $feed->find('css', $d['query'][$kk]);
+                                    break;
+                                    case 'ID':
+                                    $elem = $feed->findById(trim($d['query'][$kk],'#'));
+                                    break;
+                                    case 'NAME':
+                                    default:
+                                    $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
+                                    break;
                                 }
 
+                                if(in_array($field,['_rss_post_meta',])){
+                                    $label = 'Meta: ' . $d['meta'][$kk];
+                                }
 
-                                return $links;
+                                if(in_array($field,['_rss_post_tags',])){
+                                    $label = 'Tags: ' . $d['meta'][$kk];
+                                }
+
+                                if($elem !== NULL){
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => $this->getElemValue($elem,$d['selector'][$kk])
+                                    ];
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                        '_rss_post_meta',
+                                        '_rss_post_tags',
+                                        ]) ? $field : $d['meta'][$kk]) . ' found',1);
+                                }
+                                else {
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                    '_rss_post_meta',
+                                    '_rss_post_tags',
+                                    ]) ? $field : $d['meta'][$kk]) . ' is empty',3);
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => '-'
+                                    ];
+                                }
                             }
+                        }
+                    }else{
+                        $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
+                    }
+                }
+
+                }
+                return $links;
+            }
 
                             function logger($type,$message,$level){
                                 $lognow = [

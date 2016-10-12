@@ -16,10 +16,13 @@ define( 'DM_RSS_DEBUG' , true );
 require_once DM_RSS_PLUGIN_DIR . '/vendor/autoload.php';
 require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-to-post-grabber.php');
 require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-to-post.php');
+require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-items-url.php');
 
 if(class_exists('DMRSS'))
 {
   register_activation_hook(__FILE__, array('DMRSS', 'activate'));
   register_deactivation_hook(__FILE__, array('DMRSS', 'deactivate'));
   $DMRSS = new DMRSS();
+ 
 }
+ $RSSFIRUL = new RSSFIRUL();

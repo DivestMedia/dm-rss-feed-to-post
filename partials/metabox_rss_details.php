@@ -30,7 +30,7 @@
                                 <tr>
                                     <td style="vertical-align:top;">
                                         <p class="description"><strong>Loookup Method:</strong> </p>
-                                        <?php if(!empty($data['value'])):
+                                        <?php if(!empty($data['value']['type'])):
                                             $inputs = ($data['label']=='Custom Meta') ? $data['value']['type'] : [$data['value']['type']]; ?>
                                             <?php foreach ($inputs as $metaid => $value): ?>
                                                 <?php if(!empty($value)): ?>
@@ -55,7 +55,7 @@
                                     </td>
                                     <td style="vertical-align:top;width:350px;">
                                         <p class="description"><strong>Search for:</strong></p>
-                                        <?php if(!empty($data['value'])): ?>
+                                        <?php if(!empty($data['value']['query'])): ?>
                                             <?php
                                             $inputs = ($data['label']=='Custom Meta') ? $data['value']['query'] : [$data['value']['query']];
                                             ?>
@@ -72,7 +72,7 @@
                                         <td style="vertical-align:top;">
                                             <p class="description"><strong>Grab the:</strong></p>
 
-                                            <?php if(!empty($data['value'])): ?>
+                                            <?php if(!empty($data['value']['selector'])): ?>
                                                 <?php
                                                 $inputs = ($data['label']=='Custom Meta') ? $data['value']['selector'] : [$data['value']['selector']];
                                                 ?>
@@ -125,7 +125,7 @@
                                     <tr>
                                         <td style="vertical-align:top;">
                                             <p class="description"><strong>Loookup Method:</strong> </p>
-                                            <?php if(!empty($data['value'])):
+                                            <?php if(!empty($data['value']['type'])):
                                                 $inputs = ($data['label']=='Post Tags') ? $data['value']['type'] : [$data['value']['type']]; ?>
                                                 <?php foreach ($inputs as $metaid => $value): ?>
                                                     <?php if(!empty($value)): ?>
@@ -151,7 +151,7 @@
                                         </td>
                                         <td style="vertical-align:top;width:350px;">
                                             <p class="description"><strong>Search for:</strong></p>
-                                            <?php if(!empty($data['value'])): ?>
+                                            <?php if(!empty($data['value']['query'])): ?>
                                                 <?php
                                                 $inputs = ($data['label']=='Post Tags') ? $data['value']['query'] : [$data['value']['query']];
                                                 ?>
@@ -168,7 +168,7 @@
                                             <td style="vertical-align:top;">
                                                 <p class="description"><strong>Apply only if we found atleast:</strong></p>
 
-                                                <?php if(!empty($data['value'])): ?>
+                                                <?php if(!empty($data['value']['selector'])): ?>
                                                     <?php
                                                     $inputs = ($data['label']=='Post Tags') ? $data['value']['selector'] : [$data['value']['selector']];
                                                     ?>
@@ -203,8 +203,14 @@
                                         </tr>
                                     </tbody>
                                 </table>
-                            <?php break; ?>
-                            <?php } ?>
+                            <?php break; 
+                            case 'dropdown':?>
+                            <select name="<?=($field)?>" id="<?=($field)?>" value="<?=($data['value'])?>" <?=($data['required'] ? 'required' : '')?>>
+                                <option <?=(!strcasecmp($data['value'],'yes')?'selected':'')?>>Yes</option>
+                                <option <?=(!strcasecmp($data['value'],'no')?'selected':'')?>>No</option>
+                            </select>
+                            <?php break;
+                            } ?>
                             <?php
                             // Extra Details
                             switch ($field){

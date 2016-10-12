@@ -8,6 +8,12 @@ if(!class_exists('DMRSS')){
     {
         public $option_fields = [
             'rss_details' => [
+                '_rss_is_post' => [
+                    'label' => 'Save as Post',
+                    'description' => 'Save feed items as post or just save the urls of the feed items.',
+                    'type' => 'dropdown',
+                    'required' => false
+                ],
                 '_rss_link' => [
                     'label' => 'Feed URL',
                     'description' => 'URL where the feeds will be fetched',
@@ -68,6 +74,7 @@ if(!class_exists('DMRSS')){
                     'type' => 'keywords',
                     'required' => false
                 ],
+                
             ]
         ];
         public $browser = null;
@@ -178,133 +185,153 @@ if(!class_exists('DMRSS')){
 
         public function grab_feeds($id){
             $RSSMink = new RSSMink($id);
-            $this->logger('Grab Feeds','Start',2);
-            $feeds = $RSSMink->getRssItems(0,10);
-            foreach ($feeds as $key => $feeddata) {
-
-                $this->logger('Grab Feeds','Preparing Data',2);
-                $defaults = [
-                    'post_status' => 'publish',
-                    'post_type' => 'post',
-                ];
-                $itemurl = '';
-                $itemauthor = '';
-                $itemtags = [];
-                foreach ($feeddata as $key => $data) {
-                    if(substr( $data['key'], 0, 5 ) === "meta-"){
-                        if(!isset($args['meta_input'])) $args['meta_input'] = [];
-                        $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
-                    }
-                    elseif(substr( $data['key'], 0, 5 ) === "tags-"){
-
-                        if(!isset($args['meta_input'])) $args['meta_input'] = [];
-
-                        $newtag = ucwords(substr( $data['key'], 5));
-
-                        switch ($data['value']['validate']){
-                            case 'one':
-                            if((int)$data['value']['found'] > 0){
-                                $itemtags[] = $newtag;
-                            }
-                            break;
-                            case 'none':
-                            if((int)$data['value']['found'] < 1){
-                                $itemtags[] = $newtag;
-                            }
-                            break;
-                            case 'all':
-                            default:
-                            if((int)$data['value']['found'] == count($data['value']['keywords'])){
-                                $itemtags[] = $newtag;
-                            }
-                            break;
-                        }
-
-                        // $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
+            
+           
+            $_save_as_post = get_post_meta($id,'_rss_is_post',true);
+            if(!empty($_save_as_post)&&!strcasecmp($_save_as_post, 'no')){
+                $this->logger('Grab Feeds Url','Preparing Data',2);
+                $feeds = $RSSMink->getRssItems(0,10,true);
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'feed_items_urls';
+                foreach ($feeds as $feeddata) {
+                    $isexist = $wpdb->get_var( 'SELECT COUNT(*) FROM '.$table_name.' WHERE `title` = "'.sanitize_text_field($feeddata['title'].'"'));
+                    if(!$isexist){
+                        $_name = trim(self::seoUrl(sanitize_text_field($feeddata['title'])),'-');
+                        $insertid = $wpdb->insert($table_name,array('title'=>sanitize_text_field($feeddata['title']),'name'=>$_name,'description'=>$feeddata['description'],'url'=>$feeddata['url'],'rss_id'=>$id,'date_created'=>date('Y-m-d H:i:s',strtotime($feeddata['date']))));
+                        $this->logger('Grab Feeds Url','Saving Feed Item URL Success',1);
                     }else{
-                        switch ($data['key']) {
-                            case 'post-title':
-                            $args['post_title'] = $data['value'];
-                            break;
-                            case 'published-date':
-                            $args['post_date'] = date('Y-m-d H:i:s',strtotime($data['value']));
-                            break;
-                            case 'post-thumbnail':
-                            $args['post-thumbnail'] = $data['value'];
-                            break;
-                            case 'post-excerpt':
-                            $args['post_excerpt'] = $data['value'];
-                            break;
-                            case 'post-content':
-                            $args['post_content'] = $data['value'];
-                            break;
-                            case 'post-url':
-                            $itemurl = $data['value'];
-                            break;
-                            case 'post-author':
-                            $itemauthor = $data['value'];
-                            break;
-                        }
+                        $this->logger('Grab Feeds Url','Feed Item URL Already Exist',2);
                     }
                 }
-                if ( ! function_exists( 'post_exists' ) ) {
-                    require_once( ABSPATH . 'wp-admin/includes/post.php' );
-                }
-                if(!post_exists($args['post_title'])){
+            }else{
+                $this->logger('Grab Feeds','Start',2);
+                 $feeds = $RSSMink->getRssItems(0,10);
+                foreach ($feeds as $key => $feeddata) {
 
-                    $this->logger('Grab Feeds','Creating New Post',2);
-                    $cat_post_meta = get_post_meta($id,'_rss_post_category',true);
+                    $this->logger('Grab Feeds','Preparing Data',2);
+                    $defaults = [
+                        'post_status' => 'publish',
+                        'post_type' => 'post',
+                    ];
+                    $itemurl = '';
+                    $itemauthor = '';
+                    $itemtags = [];
+                    foreach ($feeddata as $key => $data) {
+                        if(substr( $data['key'], 0, 5 ) === "meta-"){
+                            if(!isset($args['meta_input'])) $args['meta_input'] = [];
+                            $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
+                        }
+                        elseif(substr( $data['key'], 0, 5 ) === "tags-"){
 
-                    if(!empty($cat_post_meta)){
+                            if(!isset($args['meta_input'])) $args['meta_input'] = [];
 
-                        $catid = [];
-                        $cats = explode(',',$cat_post_meta);
-                        foreach ($cats as $key => $value) {
+                            $newtag = ucwords(substr( $data['key'], 5));
 
-                            $catobj = get_term_by('name',$value,'category');
-
-                            if(!empty($catobj)){
-
-                                $catid[] = $catobj->term_id;
-
-                            }else{
-
-                                if(!function_exists('wp_create_category')){
-                                    require_once ABSPATH . 'wp-admin/includes/taxonomy.php';
+                            switch ($data['value']['validate']){
+                                case 'one':
+                                if((int)$data['value']['found'] > 0){
+                                    $itemtags[] = $newtag;
                                 }
-                                if($idhere = wp_create_category($value)){
-                                    $catid[] = $idhere;
-                                };
+                                break;
+                                case 'none':
+                                if((int)$data['value']['found'] < 1){
+                                    $itemtags[] = $newtag;
+                                }
+                                break;
+                                case 'all':
+                                default:
+                                if((int)$data['value']['found'] == count($data['value']['keywords'])){
+                                    $itemtags[] = $newtag;
+                                }
+                                break;
+                            }
 
+                            // $args['meta_input'][substr( $data['key'], 5)] = $data['value'];
+                        }else{
+                            switch ($data['key']) {
+                                case 'post-title':
+                                $args['post_title'] = $data['value'];
+                                break;
+                                case 'published-date':
+                                $args['post_date'] = date('Y-m-d H:i:s',strtotime($data['value']));
+                                break;
+                                case 'post-thumbnail':
+                                $args['post-thumbnail'] = $data['value'];
+                                break;
+                                case 'post-excerpt':
+                                $args['post_excerpt'] = $data['value'];
+                                break;
+                                case 'post-content':
+                                $args['post_content'] = $data['value'];
+                                break;
+                                case 'post-url':
+                                $itemurl = $data['value'];
+                                break;
+                                case 'post-author':
+                                $itemauthor = $data['value'];
+                                break;
                             }
                         }
-                        if(!empty($catid)){
-                            $args['post_category'] = $catid;
-                        }
                     }
+                    if ( ! function_exists( 'post_exists' ) ) {
+                        require_once( ABSPATH . 'wp-admin/includes/post.php' );
+                    }
+                    if(!post_exists($args['post_title'])){
 
-                    $args = wp_parse_args($args, $defaults);
+                        $this->logger('Grab Feeds','Creating New Post',2);
+                        $cat_post_meta = get_post_meta($id,'_rss_post_category',true);
 
-                    if(($insertid = wp_insert_post($args))>0){
-                        $this->logger('Grab Feeds','Post Creation Success . ID : ' . $insertid,1);
-                        add_post_meta($insertid, 'dm_rss_feed_id', $id, true);
-                        add_post_meta($insertid, 'dm_rss_feed_item_link', $itemurl, true);
-                        if(!empty($itemauthor)){
-                            add_post_meta($insertid, 'dm_rss_feed_item_author', $itemauthor, true);
+                        if(!empty($cat_post_meta)){
+
+                            $catid = [];
+                            $cats = explode(',',$cat_post_meta);
+                            foreach ($cats as $key => $value) {
+
+                                $catobj = get_term_by('name',$value,'category');
+
+                                if(!empty($catobj)){
+
+                                    $catid[] = $catobj->term_id;
+
+                                }else{
+
+                                    if(!function_exists('wp_create_category')){
+                                        require_once ABSPATH . 'wp-admin/includes/taxonomy.php';
+                                    }
+                                    if($idhere = wp_create_category($value)){
+                                        $catid[] = $idhere;
+                                    };
+
+                                }
+                            }
+                            if(!empty($catid)){
+                                $args['post_category'] = $catid;
+                            }
                         }
 
-                        if(!empty($itemtags)){
-                            wp_set_post_tags( $insertid, $itemtags, true );
-                        }
+                        $args = wp_parse_args($args, $defaults);
 
-                        $this->grab_thumbnail($args['post-thumbnail'],$insertid);
+                        if(($insertid = wp_insert_post($args))>0){
+                            $this->logger('Grab Feeds','Post Creation Success . ID : ' . $insertid,1);
+                            add_post_meta($insertid, 'dm_rss_feed_id', $id, true);
+                            add_post_meta($insertid, 'dm_rss_feed_item_link', $itemurl, true);
+                            if(!empty($itemauthor)){
+                                add_post_meta($insertid, 'dm_rss_feed_item_author', $itemauthor, true);
+                            }
+
+                            if(!empty($itemtags)){
+                                wp_set_post_tags( $insertid, $itemtags, true );
+                            }
+
+                            $this->grab_thumbnail($args['post-thumbnail'],$insertid);
+                        }else{
+                            $this->logger('Grab Feeds','Post Creation Failed',0);
+                        }
                     }else{
-                        $this->logger('Grab Feeds','Post Creation Failed',0);
+                        $this->logger('Grab Feeds','Post Already Exist',2);
                     }
-                }else{
-                    $this->logger('Grab Feeds','Post Already Exist',2);
-                }
 
+                }
             }
 
         }
@@ -586,6 +613,18 @@ if(!class_exists('DMRSS')){
             $txt = JSON_ENCODE($lognow)."\n";
             fwrite($logfile, $txt);
             fclose($logfile);
+        }
+
+        public function seoUrl($string) {
+            //Lower case everything
+            $string = strtolower($string);
+            //Make alphanumeric (removes all other characters)
+            $string = preg_replace("/[^a-z0-9_\s-]/", "", $string);
+            //Clean up multiple dashes or whitespaces
+            $string = preg_replace("/[\s-]+/", " ", $string);
+            //Convert whitespaces and underscore to dash
+            $string = preg_replace("/[\s_]/", "-", $string);
+            return $string;
         }
     }
 
