@@ -41,136 +41,170 @@ if(!class_exists('RSSFIURL')){
 			}
 		}
 	  	
+		public function saveObjectToFile($_filename,$_data){
+            if(!file_exists($_filename)){
+                $_news = $_data;
+                $dist = self::resize_image($_news['post-thumbnail'],450,300);
+                ob_start();
+                imagejpeg($dist, null, 75);
+                $img = ob_get_clean();
+                imagedestroy($dist);
+                $type = pathinfo($_news['post-thumbnail'], PATHINFO_EXTENSION);
+                $base64 = 'data:image/' . $type . ';base64,' . base64_encode($img);
+                $_news['post-thumbnail'] = $base64;
+                $_newfilename = fopen($_filename, "w") or die("Unable to open file!");
+                fwrite($_newfilename, json_encode($_news));
+                fclose($_newfilename);
+            }
+		}
 
+		public function getFeedItemsByUrl($_rss_post_name = 'UFC Latest News',$_limit = 10, $_page = 1,$_feed_items_url=false){
+			$_rss = get_page_by_title($_rss_post_name,'OBJECT','rss_feed');
+			if(!empty($_rss->ID)){
+				$_rss_id = $_rss->ID; 
 
-		public function getFeedItemsByUrl($_rss_post_name = 'UFC NEWS',$_limit = 10, $_page = 1,$_feed_items_url=false){
-			$_rss_id = get_page_by_title($_rss_post_name,'OBJECT','rss_feed')->ID;
-			if(!empty($_rss_id)){
 				$_offset = ($_page * $_limit) - $_limit; 
 				global $wpdb;
 				$table_name = $wpdb->prefix . 'feed_items_urls';
 				if(empty($_feed_items_url))
-					$_feed_items_url = $wpdb->get_results(' SELECT `id`,`url`,`title` FROM '.$table_name.' WHERE `rss_id` = "'.$_rss_id.'" ORDER BY `date_created` DESC LIMIT '.$_offset.','.$_limit);
+					$_feed_items_url = $wpdb->get_results(' SELECT `id`,`url`,`title`,`name` FROM '.$table_name.' WHERE `rss_id` = "'.$_rss_id.'" ORDER BY `date_created` DESC LIMIT '.$_offset.','.$_limit);
 				$links = [];
 				
 
 	        	if($_feed_items_url){
-	        		foreach ($this->meta as $key => $value) {
-		                $this->meta[$key] = get_post_meta($_rss_id,$key,true);
-		            }
-			            foreach ($_feed_items_url as $k => $_item) {
-			            	$feed = $this->visit($_item->url);
-		            	$links[$k]['post-id'] = $_item->id;
-		            	$links[$k]['post-title'] = $_item->title;
-		            	$links[$k]['post-name'] = trim(self::seoUrl($_item->title),'-');
-		            	$links[$k]['post-url'] = $_item->url;
-		            	if(!empty($feed)){
-			                foreach ([
-			                    '_rss_post_thumbnail' => 'Post Thumbnail',
-			                    '_rss_post_published' => 'Published Date',
-			                    '_rss_post_content' => 'Post Content',
-			                    '_rss_post_author' => 'Post Author',
-			                    '_rss_post_meta' => 'Custom Meta',
-			                    '_rss_post_tags' => 'Post Tags'
-			                    ] as $field => $label) {
-
-			                    $d = $this->meta[$field];
-			                    if(!in_array($field,[
-			                        '_rss_post_meta',
-			                        '_rss_post_tags',
-			                    ])){
-			                        $dd = [];
-			                        foreach ($d as $kkk => $vvv) {
-			                            $dd[$kkk][] = $vvv;
-			                        }
-
-			                        $d = $dd;
-			                    }
-			                    if(!empty($d['type']))
-			                    // Lookup Type
-			                    foreach ($d['type'] as $kk => $vv) {
-			                        switch ($vv) {
-			                            case 'Full-Content':
-			                            case 'Title Only':
-			                            case 'Content Only':
-			                            $found = 0;
-			                            $feedgrabtitle = '';
-			                            $feedgrabcontent = '';
-			                            $feedgrabbody = '';
-
-			                            foreach ($links[$k] as $linkdata) {
-			                                if($linkdata['key']=='post-title'){
-			                                    $feedgrabtitle = strip_tags($linkdata['value']);
-			                                }
-			                                if($linkdata['key']=='post-content'){
-			                                    $feedgrabcontent = strip_tags($linkdata['value']);
-			                                }
-			                            }
-
-			                            if($vv=='Full-Content'){
-			                                $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
-			                            }elseif($vv=='Title Only'){
-			                                $feedgrabbody = $feedgrabtitle;
-			                            }elseif($vv=='Content Only'){
-			                                $feedgrabbody = $feedgrabcontent;
-			                            }
-
-			                            $kw = explode(',',$d['query'][$kk]);
-
-			                            foreach ($kw as $kwk => $kwv) {
-			                                $kwv = trim($kwv);
-			                                if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
-			                                    $found++;
-			                                }
-			                            }
-
-			                            $elem = [
-			                                'found' => $found,
-			                                'keywords' => $kw,
-			                                'type' => $vv,
-			                                'validate' => $d['selector'][$kk]
-			                            ];
-
-			                            $d['selector'][$kk] = 'asis';
-			                            break;
-			                            case 'XPATH':
-			                            $elem = $feed->find('xpath', $d['query'][$kk]);
-			                            break;
-			                            case 'CSS':
-			                            $elem = $feed->find('css', $d['query'][$kk]);
-			                            break;
-			                            case 'ID':
-			                            $elem = $feed->findById(trim($d['query'][$kk],'#'));
-			                            break;
-			                            case 'NAME':
-			                            default:
-			                            $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
-			                            break;
-			                        }
-
-			                        if(in_array($field,['_rss_post_meta',])){
-			                            $label = 'Meta: ' . $d['meta'][$kk];
-			                        }
-
-			                        if(in_array($field,['_rss_post_tags',])){
-			                            $label = 'Tags: ' . $d['meta'][$kk];
-			                        }
-
-			                        if($elem !== NULL){
-			                            $links[$k][$this->slug($label)] = $this->getElemValue($elem,$d['selector'][$kk]);
-			                        }
-			                        
-			                    }
-			                }
+	        		
+		        		foreach ($this->meta as $key => $value) {
+			                $this->meta[$key] = get_post_meta($_rss_id,$key,true);
 			            }
-		            }
+			            foreach ($_feed_items_url as $k => $_item) {
+			            	$_filename = DM_RSS_PLUGIN_DIR.'news-cache/'.md5($_item->id.$_item->name).'.json';
+		                    if(file_exists($_filename)){
+		                    	$links = (array)json_decode(file_get_contents($_filename));
+		                    	return $links;
+		                    }
+			            	$feed = $this->visit($_item->url);
+			            	$links[$k]['post-id'] = $_item->id;
+			            	$links[$k]['post-title'] = $_item->title;
+			            	$links[$k]['post-name'] = trim(self::seoUrl($_item->title),'-');
+			            	$links[$k]['post-url'] = $_item->url;
+			            	if(!empty($feed)){
+				                foreach ([
+				                    '_rss_post_thumbnail' => 'Post Thumbnail',
+				                    '_rss_post_published' => 'Published Date',
+				                    '_rss_post_content' => 'Post Content',
+				                    '_rss_post_author' => 'Post Author',
+				                    '_rss_post_meta' => 'Custom Meta',
+				                    '_rss_post_tags' => 'Post Tags'
+				                    ] as $field => $label) {
+
+				                    $d = $this->meta[$field];
+				                    if(!in_array($field,[
+				                        '_rss_post_meta',
+				                        '_rss_post_tags',
+				                    ])){
+				                        $dd = [];
+				                        foreach ($d as $kkk => $vvv) {
+				                            $dd[$kkk][] = $vvv;
+				                        }
+
+				                        $d = $dd;
+				                    }
+				                    
+				                    if(!empty($d['type']))
+				                    // Lookup Type
+				                    foreach ($d['type'] as $kk => $vv) {
+				                        switch ($vv) {
+				                            case 'Full-Content':
+				                            case 'Title Only':
+				                            case 'Content Only':
+				                            $found = 0;
+				                            $feedgrabtitle = '';
+				                            $feedgrabcontent = '';
+				                            $feedgrabbody = '';
+
+				                            foreach ($links[$k] as $linkdata) {
+				                                if($linkdata['key']=='post-title'){
+				                                    $feedgrabtitle = strip_tags($linkdata['value']);
+				                                }
+				                                if($linkdata['key']=='post-content'){
+				                                    $feedgrabcontent = strip_tags($linkdata['value']);
+				                                }
+				                            }
+
+				                            if($vv=='Full-Content'){
+				                                $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
+				                            }elseif($vv=='Title Only'){
+				                                $feedgrabbody = $feedgrabtitle;
+				                            }elseif($vv=='Content Only'){
+				                                $feedgrabbody = $feedgrabcontent;
+				                            }
+
+				                            $kw = explode(',',$d['query'][$kk]);
+
+				                            foreach ($kw as $kwk => $kwv) {
+				                                $kwv = trim($kwv);
+				                                if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
+				                                    $found++;
+				                                }
+				                            }
+
+				                            $elem = [
+				                                'found' => $found,
+				                                'keywords' => $kw,
+				                                'type' => $vv,
+				                                'validate' => $d['selector'][$kk]
+				                            ];
+
+				                            $d['selector'][$kk] = 'asis';
+				                            break;
+				                            case 'XPATH':
+				                            $elem = $feed->find('xpath', $d['query'][$kk]);
+				                            break;
+				                            case 'CSS':
+				                            $elem = $feed->find('css', $d['query'][$kk]);
+				                            break;
+				                            case 'ID':
+				                            $elem = $feed->findById(trim($d['query'][$kk],'#'));
+				                            break;
+				                            case 'NAME':
+				                            default:
+				                            $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
+				                            break;
+				                        }
+
+				                        if(in_array($field,['_rss_post_meta',])){
+				                            $label = 'Meta: ' . $d['meta'][$kk];
+				                        }
+
+				                        if(in_array($field,['_rss_post_tags',])){
+				                            $label = 'Tags: ' . $d['meta'][$kk];
+				                        }
+				                        if($elem !== NULL){
+				                            $links[$k][$this->slug($label)] = $this->getElemValue($elem,$d['selector'][$kk]);
+				                        }
+				                        
+				                    }
+				                }
+				            }
+				           
+				            if(!empty($links[$k])){
+
+				            	if($_rss->post_title=='PXC Latest News'){
+				            		if(!empty($links[$k]['post-thumbnail'])){
+				            			$links[$k]['post-thumbnail'] = 'http://pacificxtremecombat.com'.$links[$k]['post-thumbnail'];
+				            		}
+				            	}
+				            	var_dump($links[$k]['post-thumbnail']);
+					        	self::saveObjectToFile($_filename,$links[$k]);
+					        }
+			            }
+		            
 	            }
 	        }
-            // echo '<pre>';
-            // print_r($links);
-            // echo '</pre>';
+
             return $links;
    		}
+
 
 		public function custom_template_init(){
 	      add_filter( 'rewrite_rules_array',[$this,'rewriteRules'] );
@@ -211,10 +245,10 @@ if(!class_exists('RSSFIURL')){
   			$_pname = get_query_var('pname');
   			$_nind = get_query_var('nind');
   			if(!empty($_cpid)&&!empty($_pname)){
-  				if (!file_exists(DM_RSS_PLUGIN_DIR.'ufc-news-cache')) {
-				    mkdir(DM_RSS_PLUGIN_DIR.'ufc-news-cache', 0777, true);
+  				if (!file_exists(DM_RSS_PLUGIN_DIR.'news-cache')) {
+				    mkdir(DM_RSS_PLUGIN_DIR.'news-cache', 0777, true);
 				}
-				$_filename = DM_RSS_PLUGIN_DIR.'ufc-news-cache/'.md5($_cpid.$_pname).'.json';
+				$_filename = DM_RSS_PLUGIN_DIR.'news-cache/'.md5($_cpid.$_pname).'.json';
 				if(!file_exists($_filename)){
 					global $wpdb;
 	  				$table_name = $wpdb->prefix . 'feed_items_urls';
@@ -225,7 +259,7 @@ if(!class_exists('RSSFIURL')){
 						status_header( 404 );
 						get_template_part( 404 ); 
 	  				}else{
-	  					$res = self::getFeedItemsByUrl('UFC NEWS',1,1,[(object)['id'=>$res->id,'url'=>$res->url,'title'=>$res->title]]);
+	  					$res = self::getFeedItemsByUrl('UFC Latest News',1,1,[(object)['id'=>$res->id,'url'=>$res->url,'title'=>$res->title]]);
 	  					$_news = $res[0];
 	  					$dist = self::resize_image($_news['post-thumbnail'],450,300);
 	  					ob_start();
@@ -242,13 +276,13 @@ if(!class_exists('RSSFIURL')){
 						include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
 		  			}
 				}else{
-					$_news = (array)json_decode(file_get_contents_curl($_filename));
+					$_news = (array)json_decode(file_get_contents($_filename));
 					include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
   				}
   				die();
   			}elseif(!empty($_nind)&&$_nind==='notindex'){
   				$_page = !empty($_cpid)?$_cpid:'1';
-  				$_all_news = self::getFeedItemsByUrl('UFC NEWS',6,$_page);
+  				$_all_news = self::getFeedItemsByUrl('UFC Latest News',6,$_page);
   				$GLOBALS['featuredTitle'] = ' UFC News';
   				global $wpdb;
   				$table_name = $wpdb->prefix . 'feed_items_urls';
