@@ -1,6 +1,6 @@
 <?php
 get_header();
-global $featuredPost,$featuredTitle,$is_article,$totalpages,$currentpage;
+global $newscategory,$featuredTitle,$is_article,$totalpages,$currentpage,$paginationbase;
 ?>
 
 <section class="alternate">
@@ -14,15 +14,15 @@ global $featuredPost,$featuredTitle,$is_article,$totalpages,$currentpage;
 			<div class="col-sm-3 hidden-xs hidden-sm">
 				<!-- side navigation -->
 				<div class="side-nav margin-top-50">
-					<?php if(count($featuredPost['categories'])): ?>
+					<?php if(count($newscategory)): ?>
 						<div class="side-nav-head">
 							<button class="fa fa-bars"></button>
 							<h4>CATEGORIES</h4>
 						</div>
 						<ul class="list-group list-unstyled nav nav-tabs nav-stacked nav-alternate uppercase">
-							<?php foreach ($featuredPost['categories'] as $featCat): ?>
-								<li class="list-group-item <?=((!empty($featCat['active']) && $featCat['active']==true) ? 'active' : '')?>">
-									<a href="<?=($featCat['link'] ?: '#')?>"><?=($featCat['name'] ?: 'Uncategorized')?></a>
+							<?php foreach ($newscategory as $category): ?>
+								<li class="list-group-item <?=((!empty($category['active']) && $category['active']==true) ? 'active' : '')?>">
+									<a href="<?=($category['link'] ?: '#')?>"><?=($category['name'] ?: 'Uncategorized')?></a>
 								</li>
 							<?php endforeach;?>
 						</ul>
@@ -40,7 +40,7 @@ global $featuredPost,$featuredTitle,$is_article,$totalpages,$currentpage;
 							<?php
 							if(count($_all_news)):
 								foreach($_all_news as $_news):
-									$post_url = home_url('/ufc-news/'.$_news['post-id'].'/'.$_news['post-name']);
+									$post_url = home_url('/news/'.$_news['post-id'].'/'.$_news['post-name']);
 							?>
 							<div class="col-sm-4">
 								<a href="<?=$post_url?>">
@@ -50,8 +50,10 @@ global $featuredPost,$featuredTitle,$is_article,$totalpages,$currentpage;
 								<p class="text-justify height-100" style="overflow:hidden;"><?=trim_text($_news['post-content'],180)?></p>
 								<ul class="text-left size-12 list-inline list-separator">
 									<li>
+										<?php if(!empty($_news['published-date'])){?>
 										<i class="fa fa-calendar"></i>
 										<?=$_news['published-date']?>
+										<?php }?>
 									</li>
 								</ul>
 							</div>
@@ -66,7 +68,7 @@ global $featuredPost,$featuredTitle,$is_article,$totalpages,$currentpage;
 		</div>
 		<?php 
 		$pages = paginate_links(array(
-			'base'               => '/ufc-news/%_%',
+			'base'               => $paginationbase,
 			'format'             => '%#%',
 			'total'              => $totalpages,
 			'current'            => $currentpage,

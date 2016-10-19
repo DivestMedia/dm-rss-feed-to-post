@@ -232,7 +232,11 @@
                                         $status = 'Invalid Link';
                                     }
                                     try {
-                                        $rss = new SimpleXmlElement($rsslink);
+                                        if(!empty($post->ID)&&$post->ID==DM_RSS_CG_ONEFCID){
+                                            $rss = new SimpleXmlElement(html_entity_decode($rsslink));
+                                        }else{
+                                            $rss = new SimpleXmlElement($rsslink);
+                                        }
                                         if(isset($rss->channel->item)){
                                             $status = "RSS Valid." . $rss->channel->item->count() ." items found.";
                                         }else{

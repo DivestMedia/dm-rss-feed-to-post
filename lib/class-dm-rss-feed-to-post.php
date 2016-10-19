@@ -190,7 +190,10 @@ if(!class_exists('DMRSS')){
             $_save_as_post = get_post_meta($id,'_rss_is_post',true);
             if(!empty($_save_as_post)&&!strcasecmp($_save_as_post, 'no')){
                 $this->logger('Grab Feeds Url','Preparing Data',2);
-                $feeds = $RSSMink->getRssItems(0,10,true);
+                if($id==DM_RSS_CG_ONEFCID)
+                $feeds = $RSSMink->getRssXmlItems(0,10,true);
+                else
+                     $feeds = $RSSMink->getRssItems(0,10,true);
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'feed_items_urls';
                 foreach ($feeds as $feeddata) {
@@ -431,13 +434,23 @@ if(!class_exists('DMRSS')){
         public function rss_ajax_feed_check_cb(){
             $stats = [];
             if(isset($_POST['id'])){
+
                 $RSSMink = new RSSMink($_POST['id']);
-                $stats = ([
-                    'status' => 1,
-                    'message' => 'Ajax Called Successfully',
-                    'data' => $RSSMink->getRssItems(0,1),
-                    'log' => $RSSMink->log,
-                ]);
+                if($_POST['id']==DM_RSS_CG_ONEFCID){
+                    $stats = ([
+                        'status' => 1,
+                        'message' => 'Ajax Called Successfully',
+                        'data' => $RSSMink->getRssXmlItems(0,1,true),
+                        'log' => $RSSMink->log,
+                    ]);
+                }else{
+                    $stats = ([
+                        'status' => 1,
+                        'message' => 'Ajax Called Successfully',
+                        'data' => $RSSMink->getRssItems(0,1),
+                        'log' => $RSSMink->log,
+                    ]);
+                }
             }else{
                 $stats = ([
                     'status' => 0,

@@ -3,7 +3,7 @@ get_header();
 ?>
 <section>
 	<div class="container">
-		<!-- <a href="#" class="text-gray bold size-10 uppercase letter-spacing-10"><?=!empty(get_the_category($post->ID)[0]->name)?get_the_category($post->ID)[0]->name:''?></a> -->
+		<!-- <a href="#" class="text-gray bold size-10 uppercase letter-spacing-10"><?php //echo !empty(get_the_category($post->ID)[0]->name)?get_the_category($post->ID)[0]->name:'';?></a> -->
 		<header class="text-left margin-bottom-50 tiny-line">
 			<h2 class="font-proxima"><a href=""><?=$_news['post-title']?></a></h2>
 			<a href="#" class="size-12 text-gray"><?=$_news['published-date']?></a>

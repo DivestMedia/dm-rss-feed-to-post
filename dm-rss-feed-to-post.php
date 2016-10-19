@@ -12,6 +12,10 @@ define( 'DM_RSS_MIN_WP_VERSION', '4.4' );
 define( 'DM_RSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DM_RSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'DM_RSS_DEBUG' , true );
+define( 'DM_RSS_CG_IMGID' , '6799' );
+//  define( 'DM_RSS_CG_IMGID' , '2676' );
+define( 'DM_RSS_CG_ONEFCID' , '6801' );
+// define( 'DM_RSS_CG_ONEFCID' , '2703' );
 
 require_once DM_RSS_PLUGIN_DIR . '/vendor/autoload.php';
 require_once( DM_RSS_PLUGIN_DIR . 'lib/class-dm-rss-feed-to-post-grabber.php');

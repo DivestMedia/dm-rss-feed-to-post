@@ -37,7 +37,7 @@ if(!class_exists('RSSMink')){
 
                 // Validate RSS
                 $this->rss = $this->meta['_rss_link'];
-                $valid = $this->checkIfValidRSS($this->rss);
+                $valid = $this->checkIfValidRSS($this->rss,$id);
                 if($valid !== false){
                     $this->count =  $valid ?: 0;
 
@@ -115,16 +115,214 @@ if(!class_exists('RSSMink')){
             }
         }
 
+        public function getRssXmlItems($offset = 0,$limit = 10,$save_item_url = false){
+
+            $this->logger('Test','Reading RSS Feed',2);
+           
+            
+            $links = [];
+            if($save_item_url){
+                 $rsslink = file_get_contents_curl($this->rss,false,stream_context_create([
+                                'http' => [
+                                    'method'  => 'GET',
+                                    'user_agent '  => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+                                    'header' => [
+                                        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+                                        '
+                                    ]
+                                ]
+                            ]));
+                $rss = new SimpleXmlElement(html_entity_decode($rsslink));
+                $feed_details = (array)$rss->channel;
+                if(!empty($feed_details['item'])){
+                    foreach ($feed_details['item'] as $key => $value) {
+                        if($key<$limit)
+                            $links[$key] = array('title'=>esc_html($value->title),'url'=>esc_html($value->guid),'description'=>esc_html($value->description),'date'=>$value->pubDate);
+                    }
+                }
+                return $links;
+            }else{
+            $feedrss = new SimplePie();
+            $feedrss->set_feed_url($this->rss);
+            $feedrss->set_cache_location( ABSPATH . 'wp-content/cache');
+            $feedrss->init();
+            $feedrss->handle_content_type();
+            if(count($feedrss->get_items($offset,$limit))<1){
+                $this->logger('Test','Reading RSS Feed : No Items fetched',0);
+            }
+            foreach ($feedrss->get_items($offset,$limit) as $k => $item) {
+
+                $links[$k] = [
+                    [
+                        'label' => 'Post Title',
+                        'key' => 'post-title',
+                        'value' => esc_html($item->get_title())
+                    ],
+                    [
+                        'label' => 'Post URL',
+                        'key' => 'post-url',
+                        'value' => esc_html($item->get_permalink())
+                    ],
+                    [
+                        'label' => 'Post Excerpt',
+                        'key' => 'post-excerpt',
+                        'value' => esc_html($item->get_description())
+                    ],
+                ];
+
+
+                // Visit the Page
+                $this->logger('Grab','Grabbing Feed item #'.($k+1),2);
+                $feed = $this->visit($item->get_permalink());
+
+                if(!empty($this->meta['_rss_post_ignore'])){
+                    $xpathignore = preg_split('/\r\n|[\r\n]/', $this->meta['_rss_post_ignore']);
+                    foreach ($xpathignore as $value) {
+                        $this->ignores[] = $value;
+                    }
+                }
+
+
+                if($feed){
+                    foreach ([
+                        '_rss_post_thumbnail' => 'Post Thumbnail',
+                        '_rss_post_published' => 'Published Date',
+                        '_rss_post_content' => 'Post Content',
+                        '_rss_post_author' => 'Post Author',
+                        '_rss_post_meta' => 'Custom Meta',
+                        '_rss_post_tags' => 'Post Tags'
+                        ] as $field => $label) {
+
+                            $d = $this->meta[$field];
+
+                            if(!in_array($field,[
+                                '_rss_post_meta',
+                                '_rss_post_tags',
+                                ])){
+                                    $dd = [];
+                                    foreach ($d as $kkk => $vvv) {
+                                        $dd[$kkk][] = $vvv;
+                                    }
+
+                                    $d = $dd;
+                                }
+
+                            // Lookup Type
+                            foreach ($d['type'] as $kk => $vv) {
+                                $this->logger('Grab','Feed item #'.($k+1).'. Looking for '.(!in_array($field,[
+                                    '_rss_post_meta',
+                                    '_rss_post_tags',
+                                    ]) ? $field : $d['meta'][$kk]),2);
+                                switch ($vv) {
+                                    case 'Full-Content':
+                                    case 'Title Only':
+                                    case 'Content Only':
+                                    $found = 0;
+                                    $feedgrabtitle = '';
+                                    $feedgrabcontent = '';
+                                    $feedgrabbody = '';
+
+                                    foreach ($links[$k] as $linkdata) {
+                                        if($linkdata['key']=='post-title'){
+                                            $feedgrabtitle = strip_tags($linkdata['value']);
+                                        }
+                                        if($linkdata['key']=='post-content'){
+                                            $feedgrabcontent = strip_tags($linkdata['value']);
+                                        }
+                                    }
+
+                                    if($vv=='Full-Content'){
+                                        $feedgrabbody = $feedgrabtitle . $feedgrabcontent;
+                                    }elseif($vv=='Title Only'){
+                                        $feedgrabbody = $feedgrabtitle;
+                                    }elseif($vv=='Content Only'){
+                                        $feedgrabbody = $feedgrabcontent;
+                                    }
+
+                                    $kw = explode(',',$d['query'][$kk]);
+
+                                    foreach ($kw as $kwk => $kwv) {
+                                        $kwv = trim($kwv);
+                                        if(!empty($kwv) && stripos($feedgrabbody,$kwv)!==FALSE){
+                                            $found++;
+                                        }
+                                    }
+
+                                    $elem = [
+                                        'found' => $found,
+                                        'keywords' => $kw,
+                                        'type' => $vv,
+                                        'validate' => $d['selector'][$kk]
+                                    ];
+
+                                    $d['selector'][$kk] = 'asis';
+                                    break;
+                                    case 'XPATH':
+                                    $elem = $feed->find('xpath', $d['query'][$kk]);
+                                    break;
+                                    case 'CSS':
+                                    $elem = $feed->find('css', $d['query'][$kk]);
+                                    break;
+                                    case 'ID':
+                                    $elem = $feed->findById(trim($d['query'][$kk],'#'));
+                                    break;
+                                    case 'NAME':
+                                    default:
+                                    $elem = $feed->find('named', array('id_or_name', $this->browser->getSelectorsHandler()->xpathLiteral($d['query'][$kk])));
+                                    break;
+                                }
+
+                                if(in_array($field,['_rss_post_meta',])){
+                                    $label = 'Meta: ' . $d['meta'][$kk];
+                                }
+
+                                if(in_array($field,['_rss_post_tags',])){
+                                    $label = 'Tags: ' . $d['meta'][$kk];
+                                }
+
+                                if($elem !== NULL){
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => $this->getElemValue($elem,$d['selector'][$kk])
+                                    ];
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                        '_rss_post_meta',
+                                        '_rss_post_tags',
+                                        ]) ? $field : $d['meta'][$kk]) . ' found',1);
+                                }
+                                else {
+                                    $this->logger('Grab','Feed item #'.($k+1).'. '.(!in_array($field,[
+                                    '_rss_post_meta',
+                                    '_rss_post_tags',
+                                    ]) ? $field : $d['meta'][$kk]) . ' is empty',3);
+                                    $links[$k][] = [
+                                        'label' => $label,
+                                        'key' => $this->slug($label),
+                                        'value' => '-'
+                                    ];
+                                }
+                            }
+                        }
+                    }else{
+                        $this->logger('Grab','Feed item #'.($k+1).' is empty',0);
+                    }
+                }
+
+                }
+                return $links;
+            }
+
         public function getRssItems($offset = 0,$limit = 10,$save_item_url = false){
 
             $this->logger('Test','Reading RSS Feed',2);
-
             $feedrss = new SimplePie();
             $feedrss->set_feed_url($this->rss);
             $feedrss->set_cache_location( ABSPATH . 'wp-content/cache');
             $feedrss->init();
             $feedrss->handle_content_type();
             $links = [];
+
             if(count($feedrss->get_items($offset,$limit))<1){
                 $this->logger('Test','Reading RSS Feed : No Items fetched',0);
             }
@@ -327,12 +525,14 @@ if(!class_exists('RSSMink')){
                                 return $data;
                             }
 
-                            function checkIfValidRSS($url){
+                            function checkIfValidRSS($url,$id){
                                 $this->logger('Test','Checking RSS URL',2);
                                 if($this->checkUrl($url)){
                                     try {
-
-                                        $rss = new SimpleXmlElement($this->file_get_contents_curl($url));
+                                        if($id==DM_RSS_CG_ONEFCID)
+                                            $rss = new SimpleXmlElement(html_entity_decode($this->file_get_contents_curl($url)));
+                                        else
+                                            $rss = new SimpleXmlElement($this->file_get_contents_curl($url));
 
                                         // $rss = new SimpleXmlElement(file_get_contents($url,false,stream_context_create([
                                         //     "ssl"=> [
