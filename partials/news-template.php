@@ -11,7 +11,8 @@ get_header();
 		</header>
 
 		<div class="row">
-			<div class="col-md-6 col-sm-12 text-justify ">
+			<div class="col-md-2 col-sm-3"></div>
+			<div class="col-md-6 col-sm-9 text-justify ">
 				<figure>
 					<img width="450" height="300" src="<?=$_news['post-thumbnail']?>" class="img-responsive margin-bottom-30 wp-post-image" alt="<?=$_news['post-title']?>">
 				</figure>
@@ -23,30 +24,30 @@ get_header();
 					Read original article on <a href="<?=$_news['post-url']?>" target="_blank"><?=$_news['post-url']?></a>
 				</p>
 				
-				</div>
-				<div class="col-lg-3 col-md-3 col-sm-3 text-left hidden-xs hidden-sm">
-					<!-- CATEGORIES -->
-					<div class="side-nav margin-bottom-10 ">
+			</div>
+			<div class="col-lg-4 col-md-4 text-left hidden-xs hidden-sm">
+				<!-- CATEGORIES -->
+				<div class="side-nav margin-bottom-10 ">
 
-							<?php
-								render_side_bar_widget();
-								?>
-
-							</div>
-							<!-- /CATEGORIES -->
-
-
-						</div>
-						<div class="col-sm-6 col-md-3 hidden-xs hidden-sm">
-							<?php
-							if(is_active_sidebar('sidebar-ads')){
-								dynamic_sidebar('sidebar-ads');
-							}
+						<?php
+							render_side_bar_widget();
 							?>
+
 						</div>
+						<!-- /CATEGORIES -->
+
+
+					</div>
+					<div class="col-sm-6 col-md-3 hidden-xs hidden-sm">
+						<?php
+						if(is_active_sidebar('sidebar-ads')){
+							dynamic_sidebar('sidebar-ads');
+						}
+						?>
 					</div>
 				</div>
-			</section>
+			</div>
+		</section>
 <?php
 	get_footer();
 ?>

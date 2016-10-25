@@ -222,7 +222,7 @@ if(!class_exists('RSSFIURL')){
 					                	$links[$k]['published-date'] = '';
 					                }
 					            	$links[$k]['post-thumbnail'] = str_replace('https', 'http', $links[$k]['post-thumbnail']);
-
+					            	$links[$k]['post-category'] = $_post_title;
 						        	self::saveObjectToFile($_filename,$links[$k]);
 						        }
 						    }
@@ -326,8 +326,12 @@ if(!class_exists('RSSFIURL')){
 	  					$feedtitle = get_the_title($res->rss_id);
 	  					if(!empty($feedtitle)){
 		  					$res = self::getFeedItemsByUrl($feedtitle,1,1,[(object)['id'=>$res->id,'url'=>$res->url,'title'=>$res->title,'name'=>$res->name,'rss_id'=>$res->rss_id]]);
+		  					$_all_news = self::getFeedItemsByUrl('all news',9,1);
 		  					$_news = $res[0];
-							include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
+							if(file_exists(get_stylesheet_directory().'/partials/news-template.php'))
+								include_once(get_stylesheet_directory().'/partials/news-template.php');
+							else
+								include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
 	  					}else{
 	  						global $wp_query;
 							$wp_query->set_404();
@@ -336,8 +340,13 @@ if(!class_exists('RSSFIURL')){
 	  					}
 		  			}
 				}else{
+					$_all_news = self::getFeedItemsByUrl('all news',9,1);
 					$_news = (array)json_decode(file_get_contents($_filename));
-					include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
+					if(file_exists(get_stylesheet_directory().'/partials/news-template.php'))
+						include_once(get_stylesheet_directory().'/partials/news-template.php');
+					else
+						include_once( DM_RSS_PLUGIN_DIR . 'partials/news-template.php');
+
   				}
   				die();
   			}elseif(!empty($_nind)&&$_nind==='notindex'){
@@ -354,8 +363,10 @@ if(!class_exists('RSSFIURL')){
   				$newscategory['all-news']['active'] = 1;
   				$GLOBALS['newscategory'] = $newscategory;
 				$GLOBALS['paginationbase'] = '/news/%_%';
-
-				include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
+				if(file_exists(get_stylesheet_directory().'/partials/all-news-template.php'))
+  					include_once(get_stylesheet_directory().'/partials/all-news-template.php');
+  				else
+  					include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
 				die();
   			}elseif(!empty($_cat)&&!empty($_ncpage)){
   				$_page = !empty($_ncpage)?$_ncpage:'1';
@@ -374,7 +385,10 @@ if(!class_exists('RSSFIURL')){
   					$GLOBALS['newscategory'] = $newscategory;
   					$GLOBALS['paginationbase'] = '/category/news/'.$_cat.'/%_%';
   				}
-  				include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
+  				if(file_exists(get_stylesheet_directory().'/partials/all-news-template.php'))
+  					include_once(get_stylesheet_directory().'/partials/all-news-template.php');
+  				else
+  					include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
   				die();
   			}
   			return $template;
