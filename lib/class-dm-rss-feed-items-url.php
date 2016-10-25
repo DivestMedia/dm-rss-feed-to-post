@@ -215,7 +215,7 @@ if(!class_exists('RSSFIURL')){
 					            		}
 					            	}
 
-				            	 	if(empty($links[$k]['post-thumbnail'])){
+				            	 	if(empty($links[$k]['post-thumbnail'])||$links[$k]['post-thumbnail']=='http://media.ufc.tv/'){
 					                	$links[$k]['post-thumbnail'] = wp_get_attachment_url(DM_RSS_CG_IMGID);
 					                }
 				            	 	if(empty($links[$k]['published-date'])){
@@ -395,6 +395,7 @@ if(!class_exists('RSSFIURL')){
 	  	}
 
 	  	public function resize_image($file, $w, $h, $crop=FALSE) {
+
 		    list($width, $height) = getimagesize($file);
 		    $r = $width / $height;
 		    if ($crop) {
