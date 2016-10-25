@@ -352,7 +352,7 @@ if(!class_exists('RSSFIURL')){
   			}elseif(!empty($_nind)&&$_nind==='notindex'){
   				$_page = !empty($_cpid)?$_cpid:'1';
   				$_all_news = self::getFeedItemsByUrl('all news',6,$_page);
-  				$GLOBALS['featuredTitle'] = ' UFC News';
+  				$GLOBALS['featuredTitle'] = ' All News';
   				global $wpdb;
   				$table_name = $wpdb->prefix . 'feed_items_urls';
   				if(empty($GLOBALS['totalpages']))
