@@ -282,30 +282,36 @@ if(!class_exists('RSSFIURL')){
 					'name'=>'ALL News',
 					'active'=>'0',
 					'link'=>'/news/',
+					'rsstitle' => 'all news',
+					'slug' => 'all-news'
 				],
 				'onefc'=>[
 					'name'=>'ONEFC',
 					'active'=>'0',
 					'link'=>'/category/news/onefc',
-					'rsstitle' => 'ONEFC Latest News'
+					'rsstitle' => 'ONEFC Latest News',
+					'slug' => 'onefc'
 				],
 				'urcc'=>[
 					'name'=>'URCC',
 					'active'=>'0',
 					'link'=>'/category/news/urcc',
-					'rsstitle' => 'URCC Latest News'
+					'rsstitle' => 'URCC Latest News',
+					'slug' => 'urcc'
 				],
 				'pxc'=>[
 					'name'=>'PXC',
 					'active'=>'0',
 					'link'=>'/category/news/pxc',
-					'rsstitle' => 'PXC Latest News'
+					'rsstitle' => 'PXC Latest News',
+					'slug' => 'pxc'
 				],
 				'ufc'=>[
 					'name'=>'UFC',
 					'active'=>'0',
 					'link'=>'/category/news/ufc',
-					'rsstitle' => 'UFC Latest News'
+					'rsstitle' => 'UFC Latest News',
+					'slug' => 'ufc'
 				],
 			];
   			if(!empty($_cpid)&&!empty($_pname)){
@@ -350,23 +356,45 @@ if(!class_exists('RSSFIURL')){
   				}
   				die();
   			}elseif(!empty($_nind)&&$_nind==='notindex'){
+  				$_cpid = !empty($_POST['page'])?$_POST['page']:$_cpid;
   				$_page = !empty($_cpid)?$_cpid:'1';
-  				$_all_news = self::getFeedItemsByUrl('all news',6,$_page);
-  				$GLOBALS['featuredTitle'] = ' All News';
-  				global $wpdb;
-  				$table_name = $wpdb->prefix . 'feed_items_urls';
-  				if(empty($GLOBALS['totalpages']))
-  					$_items_count = $wpdb->get_var( 'SELECT COUNT(*) FROM '.$table_name );
-  				$GLOBALS['totalpages'] = ceil($_items_count/6);
-  				$GLOBALS['currentpage'] = $_page;
+  				
+				if(!empty($_SERVER['REQUEST_METHOD'])&&$_SERVER['REQUEST_METHOD']=="GET"){
+					$_all_news = self::getFeedItemsByUrl('all news',6,$_page);
+					$GLOBALS['featuredTitle'] = ' All News';
+	  				global $wpdb;
+	  				$table_name = $wpdb->prefix . 'feed_items_urls';
+	  				if(empty($GLOBALS['totalpages']))
+	  					$_items_count = $wpdb->get_var( 'SELECT COUNT(*) FROM '.$table_name );
+	  				$GLOBALS['totalpages'] = ceil($_items_count/6);
+	  				$GLOBALS['currentpage'] = $_page;
 
-  				$newscategory['all-news']['active'] = 1;
-  				$GLOBALS['newscategory'] = $newscategory;
-				$GLOBALS['paginationbase'] = '/news/%_%';
-				if(file_exists(get_stylesheet_directory().'/partials/all-news-template.php'))
-  					include_once(get_stylesheet_directory().'/partials/all-news-template.php');
-  				else
-  					include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
+	  				$newscategory['all-news']['active'] = 1;
+	  				$GLOBALS['newscategory'] = $newscategory;
+					$GLOBALS['paginationbase'] = '/news/%_%';
+					if(file_exists(get_stylesheet_directory().'/partials/all-news-template.php'))
+	  					include_once(get_stylesheet_directory().'/partials/all-news-template.php');
+	  				else
+	  					include_once( DM_RSS_PLUGIN_DIR . 'partials/all-news-template.php');
+	  			}elseif(!empty($_SERVER['REQUEST_METHOD'])&&$_SERVER['REQUEST_METHOD']=="POST"){
+	  				$_ccat = $newscategory[!empty($_POST['cat'])?$_POST['cat']:'all-news'];
+	  				$_all_news = [];
+	  				if(!empty($_ccat)){
+	  					$_all_news = self::getFeedItemsByUrl($_ccat['rsstitle'],6,$_page);
+		  				if(!empty($_all_news)){
+		  					foreach ($_all_news as $key => $news) {
+		  						$_all_news[$key]['post-title'] = trim_text($news['post-title'],80);
+		  						$_all_news[$key]['post-content'] = trim_text(strip_tags($news['post-content']),180);
+		  						if(!empty($news['published-date'])){
+		  							$_all_news[$key]['published-date'] = '<i class="fa fa-calendar"></i>'.date('F d, Y',strtotime($news['published-date']));
+		  						}else{
+		  							$_all_news[$key]['published-date'] = '';
+		  						}
+		  					}
+		  				}
+		  			}
+		  			echo json_encode($_all_news);
+	  			}
 				die();
   			}elseif(!empty($_cat)&&!empty($_ncpage)){
   				$_page = !empty($_ncpage)?$_ncpage:'1';
@@ -385,6 +413,7 @@ if(!class_exists('RSSFIURL')){
   					$GLOBALS['newscategory'] = $newscategory;
   					$GLOBALS['paginationbase'] = '/category/news/'.$_cat.'/%_%';
   				}
+
   				if(file_exists(get_stylesheet_directory().'/partials/all-news-template.php'))
   					include_once(get_stylesheet_directory().'/partials/all-news-template.php');
   				else
