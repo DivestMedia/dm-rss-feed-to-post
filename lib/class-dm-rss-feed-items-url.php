@@ -22,6 +22,7 @@ if(!class_exists('RSSFIURL')){
 		public function __construct(){
 			// self::getFeedItemsByUrl('UFC NEWS');
 			self::custom_template_init();
+			self::rssfiurl_create_table();
 		}
 		public function rssfiurl_create_table(){
 			global $wpdb;
@@ -40,11 +41,11 @@ if(!class_exists('RSSFIURL')){
 				$wpdb->query($sql);
 			}
 		}
-	  	
+
 		public function saveObjectToFile($_filename,$_data){
             if(!file_exists($_filename)){
                 $_news = $_data;
-                
+
                 $dist = self::resize_image($_news['post-thumbnail'],450,300);
                 ob_start();
                 imagejpeg($dist, null, 75);
@@ -61,7 +62,11 @@ if(!class_exists('RSSFIURL')){
 
 		public function getFeedItemsByUrl($_rss_post_name = 'UFC Latest News',$_limit = 10, $_page = 1,$_feed_items_url=false){
 			$_rss = get_page_by_title($_rss_post_name,'OBJECT','rss_feed');
-			$_offset = ($_page * $_limit) - $_limit; 
+			// $_offset = ($_page * $_limit) - $_limit;
+			$_offset = (($_page - 1) * $_limit) + 1;
+			if($_offset<1){
+				$_offset = 0;
+			}
 			$links = [];
 
 			if($_rss_post_name=='all news'){
@@ -70,21 +75,21 @@ if(!class_exists('RSSFIURL')){
 				if(empty($_feed_items_url))
 					$_feed_items_url = $wpdb->get_results(' SELECT `id`,`url`,`title`,`name`,`rss_id` FROM '.$table_name.' ORDER BY `date_created` DESC LIMIT '.$_offset.','.$_limit);
 	        }elseif(!empty($_rss->ID)){
-				$_rss_id = $_rss->ID; 
+				$_rss_id = $_rss->ID;
 
-				
+
 				global $wpdb;
 				$table_name = $wpdb->prefix . 'feed_items_urls';
 				if(empty($_feed_items_url))
 					$_feed_items_url = $wpdb->get_results(' SELECT `id`,`url`,`title`,`name`,`rss_id` FROM '.$table_name.' WHERE `rss_id` = "'.$_rss_id.'" ORDER BY `date_created` DESC LIMIT '.$_offset.','.$_limit);
 	        }
-			
+
 	        	if($_feed_items_url){
 
-		        		
+
 			            foreach ($_feed_items_url as $k => $_item) {
 	        				$_rss_id = $_item->rss_id;
-	        				
+
 			            	foreach ($this->meta as $key => $value) {
 				                $this->meta[$key] = get_post_meta($_rss_id,$key,true);
 				            }
@@ -122,7 +127,7 @@ if(!class_exists('RSSFIURL')){
 
 					                        $d = $dd;
 					                    }
-					                    
+
 					                    if(!empty($d['type']))
 					                    // Lookup Type
 					                    foreach ($d['type'] as $kk => $vv) {
@@ -195,7 +200,7 @@ if(!class_exists('RSSFIURL')){
 					                        if($elem !== NULL){
 					                            $links[$k][$this->slug($label)] = $this->getElemValue($elem,$d['selector'][$kk]);
 					                        }
-					                        
+
 					                    }
 					                }
 					            }
@@ -203,7 +208,7 @@ if(!class_exists('RSSFIURL')){
 					            if(!empty($links[$k])){
 					            	$_post_title = '';
 					            	if(empty($_rss->post_title)){
-					            		
+
 					            		$_post_title = get_the_title($_rss_id);
 					            	}else{
 					            		$_post_title = $_rss->post_title;
@@ -227,16 +232,16 @@ if(!class_exists('RSSFIURL')){
 						        }
 						    }
 			            }
-		            
+
 	            }
             return $links;
    		}
 
 
 		public function custom_template_init(){
-	      add_filter( 'rewrite_rules_array',[$this,'rewriteRules'] );
-	      add_filter( 'template_include', [ $this, 'template_include' ],1,1 );
-	      add_filter( 'query_vars', [ $this, 'prefix_register_query_var' ] );
+	    //   add_filter( 'rewrite_rules_array',[$this,'rewriteRules'] );
+	    //   add_filter( 'template_include', [ $this, 'template_include' ],1,1 );
+	    //   add_filter( 'query_vars', [ $this, 'prefix_register_query_var' ] );
 	    }
 
 	    public function prefix_register_query_var($vars){
@@ -327,7 +332,7 @@ if(!class_exists('RSSFIURL')){
 						global $wp_query;
 						$wp_query->set_404();
 						status_header( 404 );
-						get_template_part( 404 ); 
+						get_template_part( 404 );
 	  				}else{
 	  					$feedtitle = get_the_title($res->rss_id);
 	  					if(!empty($feedtitle)){
@@ -342,7 +347,7 @@ if(!class_exists('RSSFIURL')){
 	  						global $wp_query;
 							$wp_query->set_404();
 							status_header( 404 );
-							get_template_part( 404 ); 
+							get_template_part( 404 );
 	  					}
 		  			}
 				}else{
@@ -358,7 +363,7 @@ if(!class_exists('RSSFIURL')){
   			}elseif(!empty($_nind)&&$_nind==='notindex'){
   				$_cpid = !empty($_POST['page'])?$_POST['page']:$_cpid;
   				$_page = !empty($_cpid)?$_cpid:'1';
-  				
+
 				if(!empty($_SERVER['REQUEST_METHOD'])&&$_SERVER['REQUEST_METHOD']=="GET"){
 					$_all_news = self::getFeedItemsByUrl('all news',6,$_page);
 					$GLOBALS['featuredTitle'] = ' All News';

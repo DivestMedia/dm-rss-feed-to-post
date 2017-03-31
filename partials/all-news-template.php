@@ -28,7 +28,11 @@ global $newscategory,$featuredTitle,$is_article,$totalpages,$currentpage,$pagina
 						</ul>
 					<?php endif;?>
 
-					<?php render_side_bar_widget();?>
+					<?php
+					if(function_exists('render_side_bar_widget')){
+						 render_side_bar_widget();
+					}
+					?>
 				</div>
 				<!-- /side navigation -->
 			</div>
@@ -66,7 +70,7 @@ global $newscategory,$featuredTitle,$is_article,$totalpages,$currentpage,$pagina
 
 
 		</div>
-		<?php 
+		<?php
 		$pages = paginate_links(array(
 			'base'               => $paginationbase,
 			'format'             => '%#%',
@@ -78,7 +82,7 @@ global $newscategory,$featuredTitle,$is_article,$totalpages,$currentpage,$pagina
 		    'next_text' 		=> 'Next &rarr;',
 			'type'               => 'array',
 			'add_args'           => false,
-		)); 		
+		));
 		if (is_array($pages)) {
 	        echo '<ul class="pagination">';
 	        foreach ($pages as $i => $page) {
@@ -95,7 +99,7 @@ global $newscategory,$featuredTitle,$is_article,$totalpages,$currentpage,$pagina
 	        echo '</ul>';
 	    }
 ?>
-		
+
 	</div>
 </div>
 </div>
