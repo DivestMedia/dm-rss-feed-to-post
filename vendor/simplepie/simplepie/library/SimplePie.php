@@ -5,7 +5,7 @@
  * A PHP-Based RSS and Atom Feed Framework.
  * Takes the hard work out of managing a complete RSS/Atom solution.
  *
- * Copyright (c) 2004-2016, Ryan Parman, Geoffrey Sneddon, Ryan McCue, and contributors
+ * Copyright (c) 2004-2017, Ryan Parman, Geoffrey Sneddon, Ryan McCue, and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification, are
@@ -33,8 +33,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @package SimplePie
- * @version 1.4
- * @copyright 2004-2016 Ryan Parman, Geoffrey Sneddon, Ryan McCue
+ * @version 1.5.1
+ * @copyright 2004-2017 Ryan Parman, Geoffrey Sneddon, Ryan McCue
  * @author Ryan Parman
  * @author Geoffrey Sneddon
  * @author Ryan McCue
@@ -50,7 +50,7 @@ define('SIMPLEPIE_NAME', 'SimplePie');
 /**
  * SimplePie Version
  */
-define('SIMPLEPIE_VERSION', '1.4');
+define('SIMPLEPIE_VERSION', '1.5.1');
 
 /**
  * SimplePie Build
@@ -616,6 +616,10 @@ class SimplePie
 	 */
 	public $item_limit = 0;
 
+	/**
+	 * @var bool Stores if last-modified and/or etag headers were sent with the
+	 * request when checking a feed.
+	 */
 	public $check_modified = false;
 
 	/**
@@ -640,6 +644,12 @@ class SimplePie
 	public $strip_htmltags = array('base', 'blink', 'body', 'doctype', 'embed', 'font', 'form', 'frame', 'frameset', 'html', 'iframe', 'input', 'marquee', 'meta', 'noscript', 'object', 'param', 'script', 'style');
 
 	/**
+	 * @var bool Should we throw exceptions, or use the old-style error property?
+	 * @access private
+	 */
+	public $enable_exceptions = false;
+	
+	/**
 	 * The SimplePie class contains feed level data and options
 	 *
 	 * To use SimplePie, create the SimplePie object with no parameters. You can
@@ -655,9 +665,9 @@ class SimplePie
 	 */
 	public function __construct()
 	{
-		if (version_compare(PHP_VERSION, '5.2', '<'))
+		if (version_compare(PHP_VERSION, '5.3', '<'))
 		{
-			trigger_error('PHP 4.x, 5.0 and 5.1 are no longer supported. Please upgrade to PHP 5.2 or newer.');
+			trigger_error('Please upgrade to PHP 5.3 or newer.');
 			die();
 		}
 
@@ -800,7 +810,7 @@ class SimplePie
 	}
 
 	/**
-	 * Set the the default timeout for fetching remote feeds
+	 * Set the default timeout for fetching remote feeds
 	 *
 	 * This allows you to change the maximum time the feed's server to respond
 	 * and send the feed back.
@@ -1195,11 +1205,11 @@ class SimplePie
 	 *
 	 * Allows you to override SimplePie's output to match that of your webpage.
 	 * This is useful for times when your webpages are not being served as
-	 * UTF-8.  This setting will be obeyed by {@see handle_content_type()}, and
+	 * UTF-8. This setting will be obeyed by {@see handle_content_type()}, and
 	 * is similar to {@see set_input_encoding()}.
 	 *
 	 * It should be noted, however, that not all character encodings can support
-	 * all characters.  If your page is being served as ISO-8859-1 and you try
+	 * all characters. If your page is being served as ISO-8859-1 and you try
 	 * to display a Japanese feed, you'll likely see garbled characters.
 	 * Because of this, it is highly recommended to ensure that your webpages
 	 * are served as UTF-8.
@@ -1279,7 +1289,7 @@ class SimplePie
 	/**
 	 * Initialize the feed object
 	 *
-	 * This is what makes everything happen.  Period.  This is where all of the
+	 * This is what makes everything happen. Period. This is where all of the
 	 * configuration options get processed, feeds are fetched, cached, and
 	 * parsed, and all of that other good stuff.
 	 *
@@ -1290,6 +1300,7 @@ class SimplePie
 		// Check absolute bare minimum requirements.
 		if (!extension_loaded('xml') || !extension_loaded('pcre'))
 		{
+			$this->error = 'XML or PCRE extensions not loaded!';
 			return false;
 		}
 		// Then check the xml extension is sane (i.e., libxml 2.7.x issue on PHP < 5.2.9 and libxml 2.7.0 to 2.7.2 on any version) if we don't have xmlreader.
@@ -1309,6 +1320,11 @@ class SimplePie
 			}
 		}
 
+		// The default sanitize class gets set in the constructor, check if it has
+		// changed.
+		if ($this->registry->get_class('Sanitize') !== 'SimplePie_Sanitize') {
+			$this->sanitize = $this->registry->create('Sanitize');
+		}
 		if (method_exists($this->sanitize, 'set_registry'))
 		{
 			$this->sanitize->set_registry($this->registry);
@@ -1370,6 +1386,13 @@ class SimplePie
 			}
 
 			list($headers, $sniffed) = $fetched;
+		}
+		
+		// Empty response check
+		if(empty($this->raw_data)){
+			$this->error = "A feed could not be found at `$this->feed_url`. Empty body.";
+			$this->registry->call('Misc', 'error', array($this->error, E_USER_NOTICE, __FILE__, __LINE__));
+			return false;
 		}
 
 		// Set up array of possible encodings
@@ -1434,7 +1457,7 @@ class SimplePie
 					$this->data = $parser->get_data();
 					if (!($this->get_type() & ~SIMPLEPIE_TYPE_NONE))
 					{
-						$this->error = "A feed could not be found at $this->feed_url. This does not appear to be a valid RSS or Atom feed.";
+						$this->error = "A feed could not be found at `$this->feed_url`. This does not appear to be a valid RSS or Atom feed.";
 						$this->registry->call('Misc', 'error', array($this->error, E_USER_NOTICE, __FILE__, __LINE__));
 						return false;
 					}
@@ -1463,7 +1486,22 @@ class SimplePie
 		}
 		else
 		{
-			$this->error = 'The data could not be converted to UTF-8. You MUST have either the iconv or mbstring extension installed. Upgrading to PHP 5.x (which includes iconv) is highly recommended.';
+			$this->error = 'The data could not be converted to UTF-8.';
+			if (!extension_loaded('mbstring') && !extension_loaded('iconv') && !class_exists('\UConverter')) {
+				$this->error .= ' You MUST have either the iconv, mbstring or intl (PHP 5.5+) extension installed and enabled.';
+			} else {
+				$missingExtensions = array();
+				if (!extension_loaded('iconv')) {
+					$missingExtensions[] = 'iconv';
+				}
+				if (!extension_loaded('mbstring')) {
+					$missingExtensions[] = 'mbstring';
+				}
+				if (!class_exists('\UConverter')) {
+					$missingExtensions[] = 'intl (PHP 5.5+)';
+				}
+				$this->error .= ' Try installing/enabling the ' . implode(' or ', $missingExtensions) . ' extension.';
+			}
 		}
 
 		$this->registry->call('Misc', 'error', array($this->error, E_USER_NOTICE, __FILE__, __LINE__));
@@ -1552,7 +1590,7 @@ class SimplePie
 						}
 						else
 						{
-                            $this->check_modified = false;
+							$this->check_modified = false;
 							if($this->force_cache_fallback)
 							{
 								$cache->touch();
@@ -1610,24 +1648,29 @@ class SimplePie
 				$copyContentType = $file->headers['content-type'];
 				try
 				{
-					// First check for h-entry microformats in the current file.
 					$microformats = false;
-					$position = 0;
-					while ($position = strpos($file->body, 'h-entry', $position + 7))
-					{
-						$start = $position < 200 ? 0 : $position - 200;
-						$check = substr($file->body, $start, 400);
-						if ($microformats = preg_match('/class="[^"]*h-entry/', $check))
-						{
-							break;
-						}
+					if (class_exists('DOMXpath') && function_exists('Mf2\parse')) {
+						$doc = new DOMDocument();
+						@$doc->loadHTML($file->body);
+						$xpath = new DOMXpath($doc);
+						// Check for both h-feed and h-entry, as both a feed with no entries
+						// and a list of entries without an h-feed wrapper are both valid.
+						$query = '//*[contains(concat(" ", @class, " "), " h-feed ") or '.
+							'contains(concat(" ", @class, " "), " h-entry ")]';
+						$result = $xpath->query($query);
+						$microformats = $result->length !== 0;
 					}
-					// Now also do feed discovery, but if an h-entry was found don't
+					// Now also do feed discovery, but if microformats were found don't
 					// overwrite the current value of file.
 					$discovered = $locate->find($this->autodiscovery,
 					                            $this->all_discovered_feeds);
 					if ($microformats)
 					{
+						if ($hub = $locate->get_rel_link('hub'))
+						{
+							$self = $locate->get_rel_link('self');
+							$this->store_links($file, $hub, $self);
+						}
 						// Push the current file onto all_discovered feeds so the user can
 						// be shown this as one of the options.
 						if (isset($this->all_discovered_feeds)) {
@@ -1874,7 +1917,7 @@ class SimplePie
 	 * @todo Support <itunes:new-feed-url>
 	 * @todo Also, |atom:link|@rel=self
 	 * @param bool $permanent Permanent mode to return only the original URL or the first redirection
-	 *  iff it is a 301 redirection
+	 * iff it is a 301 redirection
 	 * @return string|null
 	 */
 	public function subscribe_url($permanent = false)
@@ -2263,7 +2306,7 @@ class SimplePie
 	 * Get an author for the feed
 	 *
 	 * @since 1.1
-	 * @param int $key The author that you want to return.  Remember that arrays begin with 0, not 1
+	 * @param int $key The author that you want to return. Remember that arrays begin with 0, not 1
 	 * @return SimplePie_Author|null
 	 */
 	public function get_author($key = 0)
@@ -2361,7 +2404,7 @@ class SimplePie
 	 * Get a contributor for the feed
 	 *
 	 * @since 1.1
-	 * @param int $key The contrbutor that you want to return.  Remember that arrays begin with 0, not 1
+	 * @param int $key The contrbutor that you want to return. Remember that arrays begin with 0, not 1
 	 * @return SimplePie_Author|null
 	 */
 	public function get_contributor($key = 0)
@@ -2447,7 +2490,7 @@ class SimplePie
 	 * Get a single link for the feed
 	 *
 	 * @since 1.0 (previously called `get_feed_link` since Preview Release, `get_feed_permalink()` since 0.8)
-	 * @param int $key The link that you want to return.  Remember that arrays begin with 0, not 1
+	 * @param int $key The link that you want to return. Remember that arrays begin with 0, not 1
 	 * @param string $rel The relationship of the link to return
 	 * @return string|null Link URL
 	 */
@@ -2553,7 +2596,13 @@ class SimplePie
 			}
 		}
 
-		if (isset($this->data['links'][$rel]))
+		if (isset($this->data['headers']['link']) &&
+		    preg_match('/<([^>]+)>; rel='.preg_quote($rel).'/',
+		               $this->data['headers']['link'], $match))
+		{
+			return array($match[1]);
+		}
+		else if (isset($this->data['links'][$rel]))
 		{
 			return $this->data['links'][$rel];
 		}
@@ -2958,7 +3007,7 @@ class SimplePie
 	 *
 	 * @see get_item_quantity()
 	 * @since Beta 2
-	 * @param int $key The item that you want to return.  Remember that arrays begin with 0, not 1
+	 * @param int $key The item that you want to return. Remember that arrays begin with 0, not 1
 	 * @return SimplePie_Item|null
 	 */
 	public function get_item($key = 0)
@@ -2985,7 +3034,7 @@ class SimplePie
 	 * @since Beta 2
 	 * @param int $start Index to start at
 	 * @param int $end Number of items to return. 0 for all items after `$start`
-	 * @return array|null List of {@see SimplePie_Item} objects
+	 * @return SimplePie_Item[]|null List of {@see SimplePie_Item} objects
 	 */
 	public function get_items($start = 0, $end = 0)
 	{
@@ -3096,7 +3145,7 @@ class SimplePie
 
 		if (($url = $this->get_link()) !== null)
 		{
-			return 'http://g.etfv.co/' . urlencode($url);
+			return 'https://www.google.com/s2/favicons?domain=' . urlencode($url);
 		}
 
 		return false;
@@ -3201,6 +3250,44 @@ class SimplePie
 		{
 			trigger_error('Cannot merge zero SimplePie objects', E_USER_WARNING);
 			return array();
+		}
+	}
+
+	/**
+	 * Store PubSubHubbub links as headers
+	 *
+	 * There is no way to find PuSH links in the body of a microformats feed,
+	 * so they are added to the headers when found, to be used later by get_links.
+	 * @param SimplePie_File $file
+	 * @param string $hub
+	 * @param string $self
+	 */
+	private function store_links(&$file, $hub, $self) {
+		if (isset($file->headers['link']['hub']) ||
+			  (isset($file->headers['link']) &&
+			   preg_match('/rel=hub/', $file->headers['link'])))
+		{
+			return;
+		}
+
+		if ($hub)
+		{
+			if (isset($file->headers['link']))
+			{
+				if ($file->headers['link'] !== '')
+				{
+					$file->headers['link'] = ', ';
+				}
+			}
+			else
+			{
+				$file->headers['link'] = '';
+			}
+			$file->headers['link'] .= '<'.$hub.'>; rel=hub';
+			if ($self)
+			{
+				$file->headers['link'] .= ', <'.$self.'>; rel=self';
+			}
 		}
 	}
 }

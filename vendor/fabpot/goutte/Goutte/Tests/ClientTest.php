@@ -18,6 +18,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use GuzzleHttp\Middleware;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\BrowserKit\Cookie;
 
 /**
@@ -26,7 +27,7 @@ use Symfony\Component\BrowserKit\Cookie;
  * @author Michael Dowling <michael@guzzlephp.org>
  * @author Charles Sarrazin <charles@sarraz.in>
  */
-class ClientTest extends \PHPUnit_Framework_TestCase
+class ClientTest extends TestCase
 {
     protected $history;
     /** @var MockHandler */
@@ -77,7 +78,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $client->setClient($guzzle);
         $client->setHeader('User-Agent', 'foo');
         $client->request('GET', 'http://www.example.com/');
-        $this->assertEquals('Symfony2 BrowserKit, foo', end($this->history)['request']->getHeaderLine('User-Agent'));
+        $this->assertEquals('foo', end($this->history)['request']->getHeaderLine('User-Agent'));
     }
 
     public function testUsesAuth()
@@ -337,11 +338,13 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $this->assertInternalType('array', array_shift($headers), 'Header not converted from Guzzle\Http\Message\Header to array');
     }
 
+    /**
+     * @expectedException \GuzzleHttp\Exception\RequestException
+     */
     public function testNullResponseException()
     {
-        $this->setExpectedException('GuzzleHttp\Exception\RequestException');
         $guzzle = $this->getGuzzle([
-            new RequestException('', $this->getMock('Psr\Http\Message\RequestInterface')),
+            new RequestException('', $this->getMockBuilder('Psr\Http\Message\RequestInterface')->getMock()),
         ]);
         $client = new Client();
         $client->setClient($guzzle);
@@ -371,5 +374,37 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $client->setClient($guzzle);
         $client->request('GET', 'http://www.example.com/');
         $this->assertEquals('SomeHost', end($this->history)['request']->getHeaderLine('User-Agent'));
+    }
+
+    public function testResetHeaders()
+    {
+        $client = new Client();
+        $client->setHeader('X-Test', 'test');
+
+        $reflectionProperty = new \ReflectionProperty('Goutte\Client', 'headers');
+        $reflectionProperty->setAccessible(true);
+        $this->assertEquals(array('x-test' => 'test'), $reflectionProperty->getValue($client));
+
+        $client->resetHeaders();
+        $this->assertEquals([], $reflectionProperty->getValue($client));
+    }
+
+    public function testRestart()
+    {
+        $client = new Client();
+        $client->setHeader('X-Test', 'test');
+        $client->setAuth('foo', 'bar');
+
+        $headersReflectionProperty = new \ReflectionProperty('Goutte\Client', 'headers');
+        $headersReflectionProperty->setAccessible(true);
+        $this->assertEquals(array('x-test' => 'test'), $headersReflectionProperty->getValue($client));
+
+        $authReflectionProperty = new \ReflectionProperty('Goutte\Client', 'auth');
+        $authReflectionProperty->setAccessible(true);
+        $this->assertEquals(array('foo', 'bar', 'basic'), $authReflectionProperty->getValue($client));
+
+        $client->restart();
+        $this->assertEquals([], $headersReflectionProperty->getValue($client));
+        $this->assertNull($authReflectionProperty->getValue($client));
     }
 }

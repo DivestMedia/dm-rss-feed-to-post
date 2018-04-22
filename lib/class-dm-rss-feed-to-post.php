@@ -74,7 +74,7 @@ if(!class_exists('DMRSS')){
                     'type' => 'keywords',
                     'required' => false
                 ],
-                
+
             ]
         ];
         public $browser = null;
@@ -185,15 +185,15 @@ if(!class_exists('DMRSS')){
 
         public function grab_feeds($id){
             $RSSMink = new RSSMink($id);
-            
-           
+
+
             $_save_as_post = get_post_meta($id,'_rss_is_post',true);
             if(!empty($_save_as_post)&&!strcasecmp($_save_as_post, 'no')){
                 $this->logger('Grab Feeds Url','Preparing Data',2);
                 if($id==DM_RSS_CG_ONEFCID)
                 $feeds = $RSSMink->getRssXmlItems(0,10,true);
                 else
-                     $feeds = $RSSMink->getRssItems(0,10,true);
+                $feeds = $RSSMink->getRssItems(0,10,true);
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'feed_items_urls';
                 foreach ($feeds as $feeddata) {
@@ -208,7 +208,7 @@ if(!class_exists('DMRSS')){
                 }
             }else{
                 $this->logger('Grab Feeds','Start',2);
-                 $feeds = $RSSMink->getRssItems(0,10);
+                $feeds = $RSSMink->getRssItems(0,10);
                 foreach ($feeds as $key => $feeddata) {
 
                     $this->logger('Grab Feeds','Preparing Data',2);
@@ -641,4 +641,24 @@ if(!class_exists('DMRSS')){
         }
     }
 
+}
+
+function file_get_contents_curl($url) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_AUTOREFERER, TRUE);
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || $_SERVER['SERVER_PORT'] == 443);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, FALSE);
+    $data = curl_exec($ch);
+
+    if($data === false)
+    {
+        return 'Curl error: ' . curl_error($ch);
+    }
+
+    curl_close($ch);
+    return $data;
 }
